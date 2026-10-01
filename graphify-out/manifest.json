@@ -90,10 +90,10 @@
     "semantic_hash": "d22f16a7be4e6137dd175ff70ed6a13e"
   },
   "client/src/Core/Settings.cs": {
-    "mtime": 1790828752.092881,
-    "seen": 1790845437.5866902,
-    "ast_hash": "cba70d6326c80949654845628b6d737c",
-    "semantic_hash": "cba70d6326c80949654845628b6d737c"
+    "mtime": 1790847491.322762,
+    "seen": 1790848016.450692,
+    "ast_hash": "8272844190cf6483ef3d61e9a057bcd5",
+    "semantic_hash": ""
   },
   "client/src/Core/Synth.cs": {
     "mtime": 1790828752.092881,
@@ -568,5 +568,101 @@
     "seen": 1790845437.5868082,
     "ast_hash": "9b4e73e16302092478ff49bc015f669e",
     "semantic_hash": "9b4e73e16302092478ff49bc015f669e"
+  },
+  "tools/build-android.sh": {
+    "mtime": 1790847480.3307178,
+    "seen": 1790848016.4508274,
+    "ast_hash": "9e6382a4ffc0ff966f8fce2fa3ff8eb5",
+    "semantic_hash": ""
+  },
+  "tools/set-version.sh": {
+    "mtime": 1790847480.3267179,
+    "seen": 1790848016.450829,
+    "ast_hash": "2f8fd5816220880b9c977df536d7a15a",
+    "semantic_hash": ""
+  },
+  ".agents/rules/graphify.md": {
+    "mtime": 1790845423.9098897,
+    "seen": 1790848016.4508302,
+    "ast_hash": "f1e53ecc9194573d3c28fc116c743a2e",
+    "semantic_hash": ""
+  },
+  ".agents/workflows/graphify.md": {
+    "mtime": 1790845423.9098897,
+    "seen": 1790848016.4508314,
+    "ast_hash": "6d73634a678cf1e1c71930adf80bd1f0",
+    "semantic_hash": ""
+  },
+  ".github/workflows/android.yml": {
+    "mtime": 1790847480.342718,
+    "seen": 1790848016.4508326,
+    "ast_hash": "39d37a624d4ba88fe10d9366d2a9cd0c",
+    "semantic_hash": ""
+  },
+  ".github/workflows/ci.yml": {
+    "mtime": 1790831856.5052307,
+    "seen": 1790848016.4508336,
+    "ast_hash": "57696c1189c47e0cb0365214faa220df",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1790845423.6098886,
+    "seen": 1790848016.4508348,
+    "ast_hash": "e1581ded69e21f658db5c05bb31b9827",
+    "semantic_hash": ""
+  },
+  "HANDOFF.md": {
+    "mtime": 1790847884.4443386,
+    "seen": 1790848016.4508357,
+    "ast_hash": "6fdc06a25afa35c5925afa64d5d4cb5d",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1790847661.8034604,
+    "seen": 1790848016.4508367,
+    "ast_hash": "80aed6b954f7d8098c4e0271e79f4c58",
+    "semantic_hash": ""
+  },
+  "android/NearbyConnectionsPlugin/README.md": {
+    "mtime": 1790831774.840894,
+    "seen": 1790848016.4508379,
+    "ast_hash": "d5d7dfe3a97145f15fb6c2a7d2658851",
+    "semantic_hash": ""
+  },
+  "client/assets/fonts/OFL-NotoSansDevanagari.txt": {
+    "mtime": 1790828573.9961333,
+    "seen": 1790848016.4508388,
+    "ast_hash": "e13edde515de034b8074223fadcff8a9",
+    "semantic_hash": ""
+  },
+  "client/assets/fonts/OFL-Outfit.txt": {
+    "mtime": 1790828439.3995688,
+    "seen": 1790848016.4508398,
+    "ast_hash": "fc7bcc2f3d37195db3ea982ccfecd531",
+    "semantic_hash": ""
+  },
+  "client/assets/fonts/OFL-SpaceMono.txt": {
+    "mtime": 1790828438.8235664,
+    "seen": 1790848016.450841,
+    "ast_hash": "cbc4f4411e08f789042e91748398877e",
+    "semantic_hash": ""
+  },
+  "compose.yaml": {
+    "mtime": 1790845134.9006467,
+    "seen": 1790848016.450842,
+    "ast_hash": "fa36f1527f371e04ae140751df823974",
+    "semantic_hash": ""
+  },
+  "deploy/android-signing-sha256.txt": {
+    "mtime": 1790847480.3307178,
+    "seen": 1790848016.4508429,
+    "ast_hash": "9f77090ceada3fec703bc36a8a4cbb16",
+    "semantic_hash": ""
+  },
+  "client/icon.svg": {
+    "mtime": 1790828598.3482354,
+    "seen": 1790848016.4508438,
+    "ast_hash": "013b695391f33dc5ab0013525f028e50",
+    "semantic_hash": ""
   }
 }

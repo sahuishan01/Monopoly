@@ -30,6 +30,7 @@ dependencies {
     compileOnly("org.godotengine:godot:$godotVersion")
     // Must match the dependency declared in client/addons/boardempire_nearby/export_plugin.gd.
     implementation("com.google.android.gms:play-services-nearby:19.3.0")
+    implementation("androidx.core:core:1.13.1")
 }
 
 // Copies the built archives to where the Godot export plugin looks for them.
