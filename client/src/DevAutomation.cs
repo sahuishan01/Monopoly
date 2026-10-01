@@ -55,7 +55,7 @@ public static class DevAutomation
             case "replays": app.Go(new ReplayListScreen()); break;
         }
 
-        if (Has("--demo")) _ = StartDemo(app, Value("--demo", "classic"), int.Parse(Value("--players", "4")), Has("--human"));
+        if (Has("--demo")) _ = StartDemo(app, Value("--demo", "classic"), int.Parse(Value("--players", "4")), Has("--human"), Value("--board", app.Settings.LastBoard));
         if (Has("--host-lan")) _ = HostLan(app, Value("--host-lan", "classic"), int.Parse(Value("--wait-seats", "2")));
         if (Has("--join-lan")) _ = JoinLan(app, Value("--join-lan", "127.0.0.1"));
         if (Has("--online-quick")) _ = OnlineQuick(app, Value("--online-quick", "http://127.0.0.1:8091"), Value("--name", "Dev"));
@@ -155,13 +155,14 @@ public static class DevAutomation
         app.Session.Client!.SetReady(true);
     }
 
-    private static async Task StartDemo(App app, string preset, int players, bool human)
+    private static async Task StartDemo(App app, string preset, int players, bool human, string boardId)
     {
         var rules = RulePresets.Get(RulePresets.Ids.Contains(preset) ? preset : "classic");
         var seats = new List<LocalSeat>();
         for (int i = 0; i < players; i++)
             seats.Add(new LocalSeat { Name = i == 0 && human ? "Ishan" : new[] { "Ada", "Rahul", "Priya", "Akash", "Mira", "Dev", "Zoya", "Kabir" }[i], IsBot = !(i == 0 && human), BotLevel = BotLevel.Hard });
-        if (await app.Session.StartLocalAsync(seats, rules, app.Settings.LastBoard))
+        string resolvedBoard = Game.Core.Board.BoardLibrary.BoardIds.Contains(boardId) ? boardId : app.Settings.LastBoard;
+        if (await app.Session.StartLocalAsync(seats, rules, resolvedBoard))
         {
             if (app.Session.Host != null && OS.GetCmdlineUserArgs().Contains("--turbo")) app.Session.Host.Room.Options.BotDelaySeconds = 0.05;
             app.Go(new BoardScreen(), clear: true);

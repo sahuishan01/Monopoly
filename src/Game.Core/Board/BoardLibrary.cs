@@ -10,7 +10,7 @@ public static class BoardLibrary
 
     private static readonly Lazy<Dictionary<string, BoardDefinition>> Boards = new(() =>
     {
-        var list = new[] { NeoCity(), PirateIsles(), MarsColony(), PocketCity() };
+        var list = new[] { NeoCity(), PirateIsles(), MarsColony(), PocketCity(), NeonTokyo(), LondonVintage(), DragonRealm() };
         foreach (var b in list) b.Validate();
         return list.ToDictionary(b => b.BoardId);
     });
@@ -129,6 +129,93 @@ public static class BoardLibrary
         },
         new[] { "South Maglev", "West Maglev", "North Maglev", "East Maglev" },
         new[] { "Power Relay", "Water Reclaimer" }));
+
+    private static BoardDefinition NeonTokyo() => Classic40(new Skin(
+        "neon_tokyo", "Neon Tokyo", "cyber", "¥",
+        "Shibuya Crossing", "Cyber Detention", "Police Raid", "Yoyogi Garden", "Corporate Tax", "Luxury Duty",
+        "Net Signal", "Ward Vault",
+        new[]
+        {
+            ("asakusa", "Old Asakusa", "#8d5a3b", "anchor"),
+            ("akiba", "Electric Town", "#69c8ec", "diamond"),
+            ("harajuku", "Harajuku Neon", "#e0559b", "leaf"),
+            ("roppongi", "Roppongi Hills", "#f29a2e", "triangle"),
+            ("shinjuku", "Shinjuku Lights", "#e23b3b", "square"),
+            ("ginza", "Ginza Strip", "#f2d53c", "hexagon"),
+            ("odaiba", "Odaiba Bay", "#2faa5f", "wave"),
+            ("marunouchi", "Marunouchi Tower", "#2f55c8", "star"),
+        },
+        new[]
+        {
+            "Nakamise Way", "Sensoji Alley",
+            "Radio Kaikan", "Maid Cafe Row", "Circuit Alley",
+            "Takeshita Street", "Cat Street", "Omotesando Walk",
+            "Club Row", "Mori Tower", "Midnight Strip",
+            "Omoide Yokocho", "Golden Gai", "Kabukicho Way",
+            "Chuo Dori", "Namiki Street", "Kabukiza Square",
+            "Rainbow Promenade", "Telecom Center", "Gundam Plaza",
+            "Imperial Avenue", "Tokyo Sky Spire",
+        },
+        new[] { "Yamanote Line", "Ginza Metro", "Chuo Rapid", "Shinkansen Express" },
+        new[] { "Grid Substation", "Desalination Plant" }));
+
+    private static BoardDefinition LondonVintage() => Classic40(new Skin(
+        "london_vintage", "Victorian London", "vintage", "£",
+        "King's Cross", "Tower of London", "Scotland Yard", "Hyde Park", "Crown Duty", "Window Tax",
+        "Telegraph", "Parish Vault",
+        new[]
+        {
+            ("whitechapel", "Whitechapel", "#8d5a3b", "anchor"),
+            ("fleet", "Fleet Street", "#69c8ec", "diamond"),
+            ("covent", "Covent Garden", "#e0559b", "leaf"),
+            ("soho", "Soho Square", "#f29a2e", "triangle"),
+            ("westminster", "Westminster", "#e23b3b", "square"),
+            ("piccadilly", "Piccadilly", "#f2d53c", "hexagon"),
+            ("kensington", "Kensington", "#2faa5f", "wave"),
+            ("mayfair", "Mayfair", "#2f55c8", "star"),
+        },
+        new[]
+        {
+            "Brick Lane", "Commercial Road",
+            "St Bride's Alley", "Printing House Square", "The Strand",
+            "Floral Street", "Opera Arcade", "Piazza Walk",
+            "Old Compton Way", "Wardour Street", "Dean Walk",
+            "Abbey Yard", "Whitehall", "Parliament Square",
+            "Circus Approach", "Regent Quad", "Burlington Arcade",
+            "Palace Gate", "Queen's Gate", "Cromwell Road",
+            "Park Lane", "Grosvenor Square",
+        },
+        new[] { "Paddington Express", "Waterloo Line", "Victoria Station", "St Pancras Rail" },
+        new[] { "Gasworks", "Waterworks" }));
+
+    private static BoardDefinition DragonRealm() => Classic40(new Skin(
+        "dragon_realm", "Dragon Realm", "fantasy", "🪙",
+        "Hero's Gate", "Dungeon Keep", "Bounty Hunters", "Fairy Glade", "Tithe of Iron", "King's Ransom",
+        "Mystic Rune", "Guild Treasury",
+        new[]
+        {
+            ("warrens", "Goblin Warrens", "#8d5a3b", "anchor"),
+            ("docks", "Mermaid Quay", "#69c8ec", "diamond"),
+            ("elven", "Elven Canopy", "#e0559b", "leaf"),
+            ("dwarf", "Dwarf Forge", "#f29a2e", "triangle"),
+            ("citadel", "Knight's Crest", "#e23b3b", "square"),
+            ("sorcerer", "Sorcerer Spire", "#f2d53c", "hexagon"),
+            ("peaks", "Dragon Peaks", "#2faa5f", "wave"),
+            ("throne", "Royal Keep", "#2f55c8", "star"),
+        },
+        new[]
+        {
+            "Muddy Burrow", "Rust Alley",
+            "Fisher's Wharf", "Siren's Cove", "Kelp Row",
+            "Whispering Branch", "Moonlit Bower", "Silverleaf Court",
+            "Anvil Terrace", "Cinder Path", "Hammergate",
+            "Banner Hall", "Shield Row", "Paladin's March",
+            "Crystal Tower", "Astral Walk", "Archmage Spire",
+            "Wyrm Roost", "Obsidian Ridge", "Caldera Crest",
+            "Crown Approach", "Sun King Throne",
+        },
+        new[] { "Gryphon Aerie", "Pegasus Way", "Sky Galleon", "Dragon Trail" },
+        new[] { "Mana Nexus", "Forge Wellspring" }));
 
     private static readonly (int Price, int House, int[] Rents)[] ClassicStreets =
     {

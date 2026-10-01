@@ -450,7 +450,75 @@ public partial class Board2DView : Control, IGameView
         bool corner = _layout.IsCorner(i);
         float w = _layout.TileWidth * BoardPixels * _zoom;
 
-        DrawRect(r, corner ? Tokens.PanelHi.Lightened(0.04f) : Tokens.PanelHi);
+        var baseBg = def.Type switch
+        {
+            TileType.Transit => Tokens.PanelHi.Darkened(0.12f),
+            TileType.Utility => Tokens.PanelHi.Lightened(0.02f),
+            TileType.Start => Tokens.PanelHi.Lightened(0.06f),
+            TileType.Plaza => Tokens.PanelHi.Lightened(0.03f),
+            _ => corner ? Tokens.PanelHi.Lightened(0.04f) : Tokens.PanelHi,
+        };
+        DrawRect(r, baseBg);
+
+        // Bevel relief and tactile borders
+        DrawRect(r.Grow(-1f), Colors.White with { A = 0.04f }, false, 1f);
+        DrawLine(r.Position, new Vector2(r.End.X, r.Position.Y), Colors.White with { A = 0.12f }, 1f);
+        DrawLine(r.Position, new Vector2(r.Position.X, r.End.Y), Colors.White with { A = 0.08f }, 1f);
+        DrawLine(new Vector2(r.Position.X, r.End.Y), r.End, Colors.Black with { A = 0.32f }, 1.5f);
+        DrawLine(new Vector2(r.End.X, r.Position.Y), r.End, Colors.Black with { A = 0.22f }, 1.5f);
+
+        // Property-specific textures
+        if (def.Type == TileType.Transit)
+        {
+            bool horizontal = _layout.Side(i) is 0 or 2;
+            float trackSpacing = w * 0.16f;
+            var c = r.GetCenter();
+            if (horizontal)
+            {
+                float t1 = c.Y - trackSpacing * 0.5f;
+                float t2 = c.Y + trackSpacing * 0.5f;
+                DrawLine(new Vector2(r.Position.X, t1), new Vector2(r.End.X, t1), Tokens.Text with { A = 0.18f }, 1.5f);
+                DrawLine(new Vector2(r.Position.X, t2), new Vector2(r.End.X, t2), Tokens.Text with { A = 0.18f }, 1.5f);
+                for (float tx = r.Position.X + w * 0.12f; tx < r.End.X - w * 0.08f; tx += w * 0.18f)
+                    DrawLine(new Vector2(tx, t1 - 3), new Vector2(tx, t2 + 3), Tokens.Muted with { A = 0.15f }, 1.5f);
+            }
+            else
+            {
+                float t1 = c.X - trackSpacing * 0.5f;
+                float t2 = c.X + trackSpacing * 0.5f;
+                DrawLine(new Vector2(t1, r.Position.Y), new Vector2(t1, r.End.Y), Tokens.Text with { A = 0.18f }, 1.5f);
+                DrawLine(new Vector2(t2, r.Position.Y), new Vector2(t2, r.End.Y), Tokens.Text with { A = 0.18f }, 1.5f);
+                for (float ty = r.Position.Y + w * 0.12f; ty < r.End.Y - w * 0.08f; ty += w * 0.18f)
+                    DrawLine(new Vector2(t1 - 3, ty), new Vector2(t2 + 3, ty), Tokens.Muted with { A = 0.15f }, 1.5f);
+            }
+        }
+        else if (def.Type == TileType.Utility)
+        {
+            float diagStep = w * 0.22f;
+            for (float d = -r.Size.Y; d < r.Size.X; d += diagStep)
+            {
+                var a = new Vector2(Mathf.Max(r.Position.X, r.Position.X + d), r.Position.Y + Mathf.Max(0, -d));
+                var b = new Vector2(Mathf.Min(r.End.X, r.Position.X + d + r.Size.Y), r.Position.Y + Mathf.Min(r.Size.Y, r.Size.X - d));
+                DrawLine(a, b, Tokens.Info with { A = 0.08f }, 1.2f);
+            }
+        }
+        else if (def.Type == TileType.Jail)
+        {
+            float barStep = r.Size.X / 5.5f;
+            for (float bx = r.Position.X + barStep; bx < r.End.X - barStep * 0.4f; bx += barStep)
+                DrawLine(new Vector2(bx, r.Position.Y + 4), new Vector2(bx, r.End.Y - 4), Tokens.Bad with { A = 0.14f }, 1.5f);
+        }
+        else if (def.Type == TileType.Start)
+        {
+            DrawCircle(r.GetCenter(), w * 0.35f, Tokens.Accent with { A = 0.06f });
+            DrawArc(r.GetCenter(), w * 0.35f, 0, Mathf.Tau, 24, Tokens.Accent with { A = 0.25f }, 1.2f);
+        }
+        else if (def.Type == TileType.Plaza)
+        {
+            DrawCircle(r.GetCenter(), w * 0.32f, Tokens.Good with { A = 0.06f });
+            DrawArc(r.GetCenter(), w * 0.32f, 0, Mathf.Tau, 20, Tokens.Good with { A = 0.20f }, 1.2f);
+        }
+
         var text = r.Grow(-w * 0.06f);
 
         if (def.Type == TileType.Street)
@@ -458,6 +526,26 @@ public partial class Board2DView : Control, IGameView
             var band = ToScreen(_layout.Band(i));
             var color = DistrictColor(def.District);
             DrawRect(band, color);
+            // Subtle gloss sheen on upper half of band
+            DrawRect(new Rect2(band.Position, new Vector2(band.Size.X, band.Size.Y * 0.42f)), Colors.White with { A = 0.16f });
+            // Metallic divider between band and text area
+            if (_layout.Side(i) == 0)
+                DrawLine(new Vector2(band.Position.X, band.End.Y), new Vector2(band.End.X, band.End.Y), Tokens.Accent with { A = 0.5f }, 1.5f);
+            else if (_layout.Side(i) == 1)
+                DrawLine(new Vector2(band.Position.X, band.Position.Y), new Vector2(band.Position.X, band.End.Y), Tokens.Accent with { A = 0.5f }, 1.5f);
+            else if (_layout.Side(i) == 2)
+                DrawLine(new Vector2(band.Position.X, band.Position.Y), new Vector2(band.End.X, band.Position.Y), Tokens.Accent with { A = 0.5f }, 1.5f);
+            else
+                DrawLine(new Vector2(band.End.X, band.Position.Y), new Vector2(band.End.X, band.End.Y), Tokens.Accent with { A = 0.5f }, 1.5f);
+
+            // Subtle paver stone hairline texture across the street body
+            float pStep = text.Size.Y / 3f;
+            for (int p = 1; p <= 2; p++)
+            {
+                float py = text.Position.Y + p * pStep;
+                DrawLine(new Vector2(text.Position.X, py), new Vector2(text.End.X, py), Colors.White with { A = 0.035f }, 1f);
+            }
+
             if (_settings.ColorBlindPatterns) DrawGlyph(band, _board.Districts[_board.DistrictIndex(def.District)].Glyph);
             if (prop is { Level: > 0 }) DrawBuildings(band, prop.Level, _layout.Side(i) is 1 or 3);
             // Text lives in the part of the tile that the band leaves free.
@@ -469,6 +557,9 @@ public partial class Board2DView : Control, IGameView
                 _ => new Rect2(band.End.X, text.Position.Y, text.End.X - band.End.X, text.Size.Y),
             };
         }
+
+        // City illustration watermark on every property and special tile
+        DrawCityIllustration(text, i, def);
 
         int nameSize = (int)Mathf.Clamp(w * (corner ? 0.22f : 0.18f), 10, 24);
         var ink = def.Type is TileType.Street or TileType.Transit or TileType.Utility ? Tokens.Text : Tokens.Muted;
@@ -609,12 +700,30 @@ public partial class Board2DView : Control, IGameView
         float c = _layout.CornerSize;
         var inner = ToScreen(new Rect2(c, c, 1 - 2 * c, 1 - 2 * c));
         DrawRect(inner, Tokens.Bg);
+
+        // Textured watermark lattice grid
+        float gridStep = inner.Size.X * 0.065f;
+        for (float gx = inner.Position.X; gx <= inner.End.X; gx += gridStep)
+            DrawLine(new Vector2(gx, inner.Position.Y), new Vector2(gx, inner.End.Y), Tokens.Line with { A = 0.10f }, 1f);
+        for (float gy = inner.Position.Y; gy <= inner.End.Y; gy += gridStep)
+            DrawLine(new Vector2(inner.Position.X, gy), new Vector2(inner.End.X, gy), Tokens.Line with { A = 0.10f }, 1f);
+
+        // Double ornate border
+        DrawRect(inner.Grow(-3), Tokens.Line with { A = 0.45f }, false, 1.2f);
+        DrawRect(inner.Grow(-7), Tokens.Accent with { A = 0.30f }, false, 1.2f);
+
         float unit = inner.Size.X;
         int title = (int)Mathf.Clamp(unit * 0.075f, 10, 64);
         var at = inner.Position + new Vector2(0, unit * 0.2f);
+
+        // Central plaque behind title
+        var plaque = new Rect2(inner.Position.X + unit * 0.15f, at.Y - title * 0.35f, unit * 0.70f, title * 1.55f);
+        DrawRect(plaque, Tokens.PanelHi with { A = 0.75f });
+        DrawRect(plaque, Tokens.Accent with { A = 0.45f }, false, 1.5f);
+
         DrawString(Ui.MonoBold, at, "BOARD EMPIRE", HorizontalAlignment.Center, inner.Size.X, title, Tokens.Accent);
         DrawString(Ui.Mono, at + new Vector2(0, title * 0.9f), _board.Name.ToUpperInvariant(), HorizontalAlignment.Center, inner.Size.X,
-            Math.Max(8, title / 3), Tokens.Muted);
+            Math.Max(8, title / 3), Tokens.Text with { A = 0.85f });
         if (_state == null) return;
 
         int body = (int)Mathf.Clamp(unit * 0.028f, 8, 22);
@@ -631,6 +740,159 @@ public partial class Board2DView : Control, IGameView
             DrawString(Ui.Mono, new Vector2(inner.Position.X, y), text, HorizontalAlignment.Center, inner.Size.X, body, color);
             y += body * 1.5f;
         }
+    }
+
+    private void DrawCityIllustration(Rect2 area, int tileIndex, TileDef def)
+    {
+        float w = area.Size.X;
+        float h = area.Size.Y;
+        if (w < 14 || h < 14) return;
+
+        float bw = w * 0.72f;
+        float bh = Mathf.Min(h * 0.52f, bw * 0.85f);
+        float bx = area.Position.X + (w - bw) * 0.5f;
+        float by = area.Position.Y + (h - bh) * 0.58f;
+        var box = new Rect2(bx, by, bw, bh);
+
+        Color tint = def.Type == TileType.Street
+            ? DistrictColor(def.District) with { A = 0.20f }
+            : Tokens.Muted with { A = 0.16f };
+        Color line = tint with { A = tint.A * 1.5f };
+
+        switch (def.Type)
+        {
+            case TileType.Street:
+            {
+                int d = _board.DistrictIndex(def.District);
+                DrawDistrictFacade(box, d, tint, line);
+                break;
+            }
+            case TileType.Transit:
+                DrawTransitEngine(box, tint, line);
+                break;
+            case TileType.Utility:
+                DrawUtilityStructure(box, tileIndex, tint, line);
+                break;
+            case TileType.Start:
+                DrawMonumentArch(box, Tokens.Accent with { A = 0.22f });
+                break;
+            case TileType.Plaza:
+                DrawParkGazebo(box, Tokens.Good with { A = 0.22f });
+                break;
+            case TileType.Jail:
+                DrawFortressGate(box, Tokens.Bad with { A = 0.22f });
+                break;
+        }
+    }
+
+    private void DrawDistrictFacade(Rect2 b, int district, Color fill, Color stroke)
+    {
+        float x = b.Position.X, y = b.Position.Y, w = b.Size.X, h = b.Size.Y;
+        switch (district % 8)
+        {
+            case 0: // Harbor / Warehouse: gable roof + dock crane
+                DrawColoredPolygon(new[] { new Vector2(x + w * 0.05f, y + h), new Vector2(x + w * 0.05f, y + h * 0.45f), new Vector2(x + w * 0.32f, y + h * 0.15f), new Vector2(x + w * 0.60f, y + h * 0.45f), new Vector2(x + w * 0.60f, y + h) }, fill);
+                DrawLine(new Vector2(x + w * 0.72f, y + h), new Vector2(x + w * 0.76f, y + h * 0.10f), stroke, 1.5f);
+                DrawLine(new Vector2(x + w * 0.76f, y + h * 0.10f), new Vector2(x + w * 0.95f, y + h * 0.30f), stroke, 1.2f);
+                break;
+
+            case 1: // Historic Market: central clocktower + flanking awnings
+                DrawRect(new Rect2(x + w * 0.36f, y + h * 0.25f, w * 0.28f, h * 0.75f), fill);
+                DrawColoredPolygon(new[] { new Vector2(x + w * 0.34f, y + h * 0.25f), new Vector2(x + w * 0.50f, y + h * 0.02f), new Vector2(x + w * 0.66f, y + h * 0.25f) }, stroke);
+                DrawCircle(new Vector2(x + w * 0.50f, y + h * 0.40f), w * 0.07f, stroke);
+                DrawRect(new Rect2(x + w * 0.06f, y + h * 0.55f, w * 0.28f, h * 0.45f), fill);
+                DrawRect(new Rect2(x + w * 0.66f, y + h * 0.55f, w * 0.28f, h * 0.45f), fill);
+                break;
+
+            case 2: // Garden Townhouses: two brownstones with pediments
+                DrawRect(new Rect2(x + w * 0.08f, y + h * 0.35f, w * 0.38f, h * 0.65f), fill);
+                DrawColoredPolygon(new[] { new Vector2(x + w * 0.08f, y + h * 0.35f), new Vector2(x + w * 0.27f, y + h * 0.16f), new Vector2(x + w * 0.46f, y + h * 0.35f) }, stroke);
+                DrawRect(new Rect2(x + w * 0.52f, y + h * 0.30f, w * 0.40f, h * 0.70f), fill);
+                DrawColoredPolygon(new[] { new Vector2(x + w * 0.52f, y + h * 0.30f), new Vector2(x + w * 0.72f, y + h * 0.10f), new Vector2(x + w * 0.92f, y + h * 0.30f) }, stroke);
+                DrawRect(new Rect2(x + w * 0.82f, y + h * 0.04f, w * 0.06f, h * 0.12f), stroke);
+                break;
+
+            case 3: // Artisan Lofts / Forge: sawtooth roofs + smokestack
+                DrawColoredPolygon(new[] { new Vector2(x + w * 0.08f, y + h), new Vector2(x + w * 0.08f, y + h * 0.55f), new Vector2(x + w * 0.34f, y + h * 0.25f), new Vector2(x + w * 0.34f, y + h * 0.55f), new Vector2(x + w * 0.60f, y + h * 0.25f), new Vector2(x + w * 0.60f, y + h) }, fill);
+                DrawRect(new Rect2(x + w * 0.70f, y + h * 0.12f, w * 0.18f, h * 0.88f), fill);
+                DrawRect(new Rect2(x + w * 0.68f, y + h * 0.08f, w * 0.22f, h * 0.08f), stroke);
+                break;
+
+            case 4: // Civic Hall: grand pediment + columns
+                DrawRect(new Rect2(x + w * 0.10f, y + h * 0.84f, w * 0.80f, h * 0.16f), fill);
+                DrawColoredPolygon(new[] { new Vector2(x + w * 0.12f, y + h * 0.38f), new Vector2(x + w * 0.50f, y + h * 0.14f), new Vector2(x + w * 0.88f, y + h * 0.38f) }, fill);
+                DrawArc(new Vector2(x + w * 0.50f, y + h * 0.38f), w * 0.18f, Mathf.Pi, Mathf.Tau, 12, stroke, 1.2f);
+                for (int c = 0; c < 4; c++)
+                    DrawLine(new Vector2(x + w * (0.24f + c * 0.17f), y + h * 0.40f), new Vector2(x + w * (0.24f + c * 0.17f), y + h * 0.84f), stroke, 1.5f);
+                break;
+
+            case 5: // Tech Park: angular high-tech prism with solar top
+                DrawColoredPolygon(new[] { new Vector2(x + w * 0.20f, y + h), new Vector2(x + w * 0.20f, y + h * 0.15f), new Vector2(x + w * 0.65f, y + h * 0.35f), new Vector2(x + w * 0.65f, y + h) }, fill);
+                DrawRect(new Rect2(x + w * 0.65f, y + h * 0.50f, w * 0.25f, h * 0.50f), fill);
+                DrawLine(new Vector2(x + w * 0.20f, y + h * 0.15f), new Vector2(x + w * 0.20f, y + h * 0.02f), stroke, 1.5f);
+                DrawLine(new Vector2(x + w * 0.20f, y + h * 0.50f), new Vector2(x + w * 0.65f, y + h * 0.70f), stroke, 1.0f);
+                break;
+
+            case 6: // Riverside: stepped waterfront terraces
+                DrawRect(new Rect2(x + w * 0.12f, y + h * 0.65f, w * 0.76f, h * 0.35f), fill);
+                DrawRect(new Rect2(x + w * 0.22f, y + h * 0.42f, w * 0.56f, h * 0.25f), fill);
+                DrawRect(new Rect2(x + w * 0.34f, y + h * 0.20f, w * 0.32f, h * 0.24f), fill);
+                DrawLine(new Vector2(x + w * 0.12f, y + h * 0.65f), new Vector2(x + w * 0.88f, y + h * 0.65f), stroke, 1.2f);
+                DrawLine(new Vector2(x + w * 0.22f, y + h * 0.42f), new Vector2(x + w * 0.78f, y + h * 0.42f), stroke, 1.2f);
+                break;
+
+            case 7: // Skyline Pinnacle: soaring scraper with antenna
+                DrawRect(new Rect2(x + w * 0.34f, y + h * 0.22f, w * 0.32f, h * 0.78f), fill);
+                DrawColoredPolygon(new[] { new Vector2(x + w * 0.34f, y + h * 0.22f), new Vector2(x + w * 0.50f, y + h * 0.08f), new Vector2(x + w * 0.66f, y + h * 0.22f) }, stroke);
+                DrawLine(new Vector2(x + w * 0.50f, y + h * 0.08f), new Vector2(x + w * 0.50f, y), stroke, 1.5f);
+                DrawRect(new Rect2(x + w * 0.12f, y + h * 0.55f, w * 0.20f, h * 0.45f), fill);
+                DrawRect(new Rect2(x + w * 0.68f, y + h * 0.55f, w * 0.20f, h * 0.45f), fill);
+                break;
+        }
+    }
+
+    private void DrawTransitEngine(Rect2 b, Color fill, Color stroke)
+    {
+        float x = b.Position.X, y = b.Position.Y, w = b.Size.X, h = b.Size.Y;
+        DrawColoredPolygon(new[] { new Vector2(x + w * 0.15f, y + h * 0.88f), new Vector2(x + w * 0.15f, y + h * 0.35f), new Vector2(x + w * 0.35f, y + h * 0.12f), new Vector2(x + w * 0.65f, y + h * 0.12f), new Vector2(x + w * 0.85f, y + h * 0.35f), new Vector2(x + w * 0.85f, y + h * 0.88f) }, fill);
+        DrawRect(new Rect2(x + w * 0.26f, y + h * 0.30f, w * 0.48f, h * 0.25f), stroke);
+        DrawCircle(new Vector2(x + w * 0.30f, y + h * 0.72f), w * 0.06f, Tokens.Accent with { A = 0.5f });
+        DrawCircle(new Vector2(x + w * 0.70f, y + h * 0.72f), w * 0.06f, Tokens.Accent with { A = 0.5f });
+    }
+
+    private void DrawUtilityStructure(Rect2 b, int tile, Color fill, Color stroke)
+    {
+        float x = b.Position.X, y = b.Position.Y, w = b.Size.X, h = b.Size.Y;
+        DrawLine(new Vector2(x + w * 0.50f, y + h * 0.08f), new Vector2(x + w * 0.20f, y + h * 0.92f), stroke, 1.5f);
+        DrawLine(new Vector2(x + w * 0.50f, y + h * 0.08f), new Vector2(x + w * 0.80f, y + h * 0.92f), stroke, 1.5f);
+        DrawLine(new Vector2(x + w * 0.18f, y + h * 0.35f), new Vector2(x + w * 0.82f, y + h * 0.35f), stroke, 1.5f);
+        DrawLine(new Vector2(x + w * 0.24f, y + h * 0.58f), new Vector2(x + w * 0.76f, y + h * 0.58f), stroke, 1.5f);
+    }
+
+    private void DrawMonumentArch(Rect2 b, Color stroke)
+    {
+        float x = b.Position.X, y = b.Position.Y, w = b.Size.X, h = b.Size.Y;
+        DrawRect(new Rect2(x + w * 0.12f, y + h * 0.20f, w * 0.76f, h * 0.75f), stroke with { A = stroke.A * 0.5f });
+        DrawArc(new Vector2(x + w * 0.50f, y + h * 0.65f), w * 0.22f, Mathf.Pi, Mathf.Tau, 14, stroke, 1.5f);
+        DrawLine(new Vector2(x + w * 0.28f, y + h * 0.65f), new Vector2(x + w * 0.28f, y + h * 0.95f), stroke, 1.5f);
+        DrawLine(new Vector2(x + w * 0.72f, y + h * 0.65f), new Vector2(x + w * 0.72f, y + h * 0.95f), stroke, 1.5f);
+    }
+
+    private void DrawParkGazebo(Rect2 b, Color stroke)
+    {
+        float x = b.Position.X, y = b.Position.Y, w = b.Size.X, h = b.Size.Y;
+        DrawArc(new Vector2(x + w * 0.50f, y + h * 0.40f), w * 0.30f, Mathf.Pi, Mathf.Tau, 16, stroke, 1.5f);
+        DrawLine(new Vector2(x + w * 0.25f, y + h * 0.40f), new Vector2(x + w * 0.25f, y + h * 0.88f), stroke, 1.2f);
+        DrawLine(new Vector2(x + w * 0.50f, y + h * 0.40f), new Vector2(x + w * 0.50f, y + h * 0.88f), stroke, 1.2f);
+        DrawLine(new Vector2(x + w * 0.75f, y + h * 0.40f), new Vector2(x + w * 0.75f, y + h * 0.88f), stroke, 1.2f);
+    }
+
+    private void DrawFortressGate(Rect2 b, Color stroke)
+    {
+        float x = b.Position.X, y = b.Position.Y, w = b.Size.X, h = b.Size.Y;
+        DrawRect(new Rect2(x + w * 0.10f, y + h * 0.25f, w * 0.24f, h * 0.70f), stroke with { A = stroke.A * 0.6f });
+        DrawRect(new Rect2(x + w * 0.66f, y + h * 0.25f, w * 0.24f, h * 0.70f), stroke with { A = stroke.A * 0.6f });
+        DrawRect(new Rect2(x + w * 0.34f, y + h * 0.45f, w * 0.32f, h * 0.50f), stroke with { A = stroke.A * 0.4f });
     }
 
     private void DrawTokens()

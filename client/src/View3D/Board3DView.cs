@@ -63,12 +63,167 @@ public partial class Board3DView : SubViewportContainer, IGameView
 
     private Vector3 World(Vector2 unit, float y = 0) => new((unit.X - 0.5f) * B, y, (unit.Y - 0.5f) * B);
 
-    private StandardMaterial3D Mat(Color color, float roughness = 0.8f, float metallic = 0f)
+    private static ImageTexture? _stoneTexture, _transitTexture, _utilityTexture, _woodTexture;
+
+    private static ImageTexture GetStoneTexture()
     {
-        string key = $"{color.ToRgba32()}:{roughness}:{metallic}";
+        if (_stoneTexture != null) return _stoneTexture;
+        var img = Image.CreateEmpty(64, 64, false, Image.Format.Rgba8);
+        var rng = new Random(101);
+        for (int y = 0; y < 64; y++)
+        {
+            for (int x = 0; x < 64; x++)
+            {
+                float edge = Mathf.Min(Mathf.Min(x, 63 - x), Mathf.Min(y, 63 - y)) / 4f;
+                float edgeFactor = Mathf.Clamp(edge, 0.82f, 1f);
+                float grain = (float)(rng.NextDouble() * 0.14 - 0.07);
+                float val = Mathf.Clamp(0.92f * edgeFactor + grain, 0.65f, 1f);
+                img.SetPixel(x, y, new Color(val, val, val));
+            }
+        }
+        _stoneTexture = ImageTexture.CreateFromImage(img);
+        return _stoneTexture;
+    }
+
+    private static ImageTexture GetTransitTexture()
+    {
+        if (_transitTexture != null) return _transitTexture;
+        var img = Image.CreateEmpty(64, 64, false, Image.Format.Rgba8);
+        var rng = new Random(202);
+        for (int y = 0; y < 64; y++)
+        {
+            for (int x = 0; x < 64; x++)
+            {
+                float brush = (float)(rng.NextDouble() * 0.10 - 0.05);
+                bool track = (x >= 17 && x <= 21) || (x >= 43 && x <= 47);
+                float val = track ? 0.38f : Mathf.Clamp(0.85f + brush, 0.55f, 1f);
+                img.SetPixel(x, y, new Color(val, val, val));
+            }
+        }
+        _transitTexture = ImageTexture.CreateFromImage(img);
+        return _transitTexture;
+    }
+
+    private static ImageTexture GetUtilityTexture()
+    {
+        if (_utilityTexture != null) return _utilityTexture;
+        var img = Image.CreateEmpty(64, 64, false, Image.Format.Rgba8);
+        for (int y = 0; y < 64; y++)
+        {
+            for (int x = 0; x < 64; x++)
+            {
+                bool grid = (x % 8 == 0) || (y % 8 == 0) || ((x + y) % 16 == 0);
+                float val = grid ? 0.62f : 0.95f;
+                img.SetPixel(x, y, new Color(val, val, val));
+            }
+        }
+        _utilityTexture = ImageTexture.CreateFromImage(img);
+        return _utilityTexture;
+    }
+
+    private static ImageTexture GetWoodTexture()
+    {
+        if (_woodTexture != null) return _woodTexture;
+        var img = Image.CreateEmpty(128, 128, false, Image.Format.Rgba8);
+        var rng = new Random(303);
+        for (int y = 0; y < 128; y++)
+        {
+            for (int x = 0; x < 128; x++)
+            {
+                float rings = Mathf.Sin(x * 0.18f + Mathf.Cos(y * 0.06f) * 3.5f);
+                float grain = (float)(rng.NextDouble() * 0.08 - 0.04);
+                float val = Mathf.Clamp(0.82f + rings * 0.14f + grain, 0.55f, 1f);
+                img.SetPixel(x, y, new Color(val, val, val));
+            }
+        }
+        _woodTexture = ImageTexture.CreateFromImage(img);
+        return _woodTexture;
+    }
+
+    private static readonly Dictionary<int, ImageTexture> _districtTextures = new();
+
+    private static ImageTexture GetDistrictTexture(int district, Color distColor)
+    {
+        int dKey = Math.Max(0, district) % 8;
+        if (_districtTextures.TryGetValue(dKey, out var tex)) return tex;
+
+        var img = Image.CreateEmpty(64, 64, false, Image.Format.Rgba8);
+        var rng = new Random(100 + dKey * 37);
+
+        for (int y = 0; y < 64; y++)
+        {
+            for (int x = 0; x < 64; x++)
+            {
+                float edge = Mathf.Min(Mathf.Min(x, 63 - x), Mathf.Min(y, 63 - y)) / 4f;
+                float edgeFactor = Mathf.Clamp(edge, 0.82f, 1f);
+                float grain = (float)(rng.NextDouble() * 0.12 - 0.06);
+                float val = Mathf.Clamp(0.92f * edgeFactor + grain, 0.65f, 1f);
+                img.SetPixel(x, y, new Color(val, val, val));
+            }
+        }
+
+        void StampBuilding(int bx, int by, int bw, int bh, float brightness)
+        {
+            for (int py = by; py < Mathf.Min(64, by + bh); py++)
+            {
+                for (int px = bx; px < Mathf.Min(64, bx + bw); px++)
+                {
+                    var basePix = img.GetPixel(px, py);
+                    var blended = basePix.Lerp(distColor * brightness, 0.28f);
+                    img.SetPixel(px, py, blended);
+                }
+            }
+        }
+
+        switch (dKey)
+        {
+            case 0:
+                StampBuilding(8, 20, 28, 40, 0.85f);
+                StampBuilding(40, 10, 16, 50, 0.70f);
+                break;
+            case 1:
+                StampBuilding(22, 12, 20, 48, 0.90f);
+                StampBuilding(6, 32, 16, 28, 0.80f);
+                StampBuilding(42, 32, 16, 28, 0.80f);
+                break;
+            case 2:
+                StampBuilding(10, 18, 20, 42, 0.88f);
+                StampBuilding(34, 14, 20, 46, 0.82f);
+                break;
+            case 3:
+                StampBuilding(8, 24, 18, 36, 0.85f);
+                StampBuilding(26, 24, 18, 36, 0.85f);
+                StampBuilding(48, 8, 10, 52, 0.65f);
+                break;
+            case 4:
+                StampBuilding(12, 16, 40, 44, 0.90f);
+                break;
+            case 5:
+                StampBuilding(14, 10, 24, 50, 0.95f);
+                StampBuilding(38, 28, 16, 32, 0.75f);
+                break;
+            case 6:
+                StampBuilding(10, 32, 44, 28, 0.80f);
+                StampBuilding(18, 20, 28, 16, 0.90f);
+                break;
+            case 7:
+                StampBuilding(24, 6, 16, 54, 1.05f);
+                StampBuilding(8, 30, 14, 30, 0.75f);
+                StampBuilding(42, 30, 14, 30, 0.75f);
+                break;
+        }
+
+        tex = ImageTexture.CreateFromImage(img);
+        _districtTextures[dKey] = tex;
+        return tex;
+    }
+
+    private StandardMaterial3D Mat(Color color, float roughness = 0.8f, float metallic = 0f, Texture2D? texture = null)
+    {
+        string key = $"{color.ToRgba32()}:{roughness}:{metallic}:{(texture != null ? texture.GetRid().Id : 0)}";
         if (!_materials.TryGetValue(key, out var m))
         {
-            m = new StandardMaterial3D { AlbedoColor = color, Roughness = roughness, Metallic = metallic };
+            m = new StandardMaterial3D { AlbedoColor = color, Roughness = roughness, Metallic = metallic, AlbedoTexture = texture };
             _materials[key] = m;
         }
         return m;
@@ -119,11 +274,24 @@ public partial class Board3DView : SubViewportContainer, IGameView
             Mesh = new PlaneMesh { Size = new Vector2(B * 8, B * 8) }, Position = new Vector3(0, -0.2f, 0),
             MaterialOverride = Mat(new Color(0.11f, 0.15f, 0.2f), 1f),
         });
+        // Board frame with rich woodgrain
         _world.AddChild(new MeshInstance3D
         {
-            Mesh = new BoxMesh { Size = new Vector3(B + 0.7f, 0.2f, B + 0.7f) }, Position = new Vector3(0, -0.1f, 0),
-            MaterialOverride = Mat(new Color(0.07f, 0.09f, 0.14f), 0.9f),
+            Mesh = new BoxMesh { Size = new Vector3(B + 0.8f, 0.24f, B + 0.8f) }, Position = new Vector3(0, -0.12f, 0),
+            MaterialOverride = Mat(new Color(0.16f, 0.13f, 0.11f), 0.55f, 0.05f, GetWoodTexture()),
         });
+        // Gold corner brackets on board frame
+        var goldMat = new StandardMaterial3D { AlbedoColor = new Color(0.92f, 0.76f, 0.38f), Metallic = 0.88f, Roughness = 0.22f };
+        float cornerOffset = (B + 0.7f) / 2f;
+        foreach (var (cx, cz) in new[] { (-1f, -1f), (-1f, 1f), (1f, -1f), (1f, 1f) })
+        {
+            _world.AddChild(new MeshInstance3D
+            {
+                Mesh = new BoxMesh { Size = new Vector3(1.1f, 0.26f, 1.1f) },
+                Position = new Vector3(cx * cornerOffset, -0.10f, cz * cornerOffset),
+                MaterialOverride = goldMat,
+            });
+        }
 
         BuildTiles();
 
@@ -224,13 +392,24 @@ public partial class Board3DView : SubViewportContainer, IGameView
             var size = new Vector3(rect.Size.X * B - gap, TileHeight, rect.Size.Y * B - gap);
             visual.BaseColor = def.Type switch
             {
-                TileType.Street or TileType.Transit or TileType.Utility => new Color(0.66f, 0.68f, 0.72f),
-                TileType.Start => new Color(0.74f, 0.63f, 0.4f),
-                TileType.GoToJail or TileType.Jail => new Color(0.58f, 0.53f, 0.56f),
-                TileType.Plaza => new Color(0.5f, 0.64f, 0.54f),
-                _ => new Color(0.56f, 0.6f, 0.68f),
+                TileType.Street => new Color(0.68f, 0.70f, 0.74f),
+                TileType.Transit => new Color(0.40f, 0.44f, 0.50f),
+                TileType.Utility => new Color(0.44f, 0.48f, 0.54f),
+                TileType.Start => new Color(0.78f, 0.68f, 0.46f),
+                TileType.GoToJail or TileType.Jail => new Color(0.50f, 0.46f, 0.50f),
+                TileType.Plaza => new Color(0.42f, 0.58f, 0.48f),
+                _ => new Color(0.58f, 0.62f, 0.68f),
             };
-            visual.Material = new StandardMaterial3D { AlbedoColor = visual.BaseColor, Roughness = 0.85f };
+            Texture2D tileTex = def.Type switch
+            {
+                TileType.Street => GetDistrictTexture(_board.DistrictIndex(def.District), DistrictColor(def.District)),
+                TileType.Transit => GetTransitTexture(),
+                TileType.Utility => GetUtilityTexture(),
+                _ => GetStoneTexture(),
+            };
+            float tileRoughness = def.Type is TileType.Transit or TileType.Utility ? 0.38f : 0.72f;
+            float tileMetallic = def.Type == TileType.Transit ? 0.40f : def.Type == TileType.Utility ? 0.55f : 0.04f;
+            visual.Material = Mat(visual.BaseColor, tileRoughness, tileMetallic, tileTex);
             visual.Slab = new MeshInstance3D
             {
                 Mesh = new BoxMesh { Size = size }, Position = World(rect.GetCenter(), TileHeight / 2), MaterialOverride = visual.Material,
@@ -239,6 +418,7 @@ public partial class Board3DView : SubViewportContainer, IGameView
 
             var inward = _layout.Inward(i);
             var nameAt = rect.GetCenter();
+            var goldTrim = Mat(new Color(0.92f, 0.76f, 0.38f), 0.22f, 0.88f);
             if (def.Type == TileType.Street)
             {
                 var band = _layout.Band(i);
@@ -246,9 +426,60 @@ public partial class Board3DView : SubViewportContainer, IGameView
                 {
                     Mesh = new BoxMesh { Size = new Vector3(band.Size.X * B - gap, TileHeight + 0.03f, band.Size.Y * B - gap) },
                     Position = World(band.GetCenter(), (TileHeight + 0.03f) / 2),
-                    MaterialOverride = Mat(DistrictColor(def.District), 0.7f),
+                    MaterialOverride = Mat(DistrictColor(def.District), 0.32f, 0.12f),
                 });
+                // Gold pin-stripe divider separating district band from lot
+                bool horizontal = _layout.Side(i) is 0 or 2;
+                var sepSize = horizontal
+                    ? new Vector3(band.Size.X * B - gap, TileHeight + 0.036f, 0.05f)
+                    : new Vector3(0.05f, TileHeight + 0.036f, band.Size.Y * B - gap);
+                var sepPos = World(band.GetCenter() - inward * (horizontal ? band.Size.Y : band.Size.X) * 0.48f, (TileHeight + 0.036f) / 2);
+                _world.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = sepSize }, Position = sepPos, MaterialOverride = goldTrim });
+
                 nameAt -= inward * _layout.CornerSize * 0.11f;
+            }
+            else if (def.Type == TileType.Transit)
+            {
+                // Twin physical silver railway rails
+                bool horizontal = _layout.Side(i) is 0 or 2;
+                var railMat = Mat(new Color(0.88f, 0.90f, 0.94f), 0.22f, 0.92f);
+                float trackOffset = 0.22f;
+                for (int rIndex = -1; rIndex <= 1; rIndex += 2)
+                {
+                    var rSize = horizontal ? new Vector3(size.X, 0.025f, 0.045f) : new Vector3(0.045f, 0.025f, size.Z);
+                    var rOffset = horizontal ? new Vector3(0, 0, rIndex * trackOffset) : new Vector3(rIndex * trackOffset, 0, 0);
+                    _world.AddChild(new MeshInstance3D
+                    {
+                        Mesh = new BoxMesh { Size = rSize },
+                        Position = World(rect.GetCenter(), TileHeight + 0.012f) + rOffset,
+                        MaterialOverride = railMat,
+                    });
+                }
+            }
+            else if (def.Type == TileType.Utility)
+            {
+                // Central tech plate
+                var utilPlateMat = Mat(new Color(0.25f, 0.38f, 0.48f), 0.28f, 0.75f, GetUtilityTexture());
+                _world.AddChild(new MeshInstance3D
+                {
+                    Mesh = new BoxMesh { Size = new Vector3(size.X * 0.52f, 0.02f, size.Z * 0.52f) },
+                    Position = World(rect.GetCenter(), TileHeight + 0.010f),
+                    MaterialOverride = utilPlateMat,
+                });
+            }
+            else if (def.Type == TileType.Jail)
+            {
+                // Iron bars over the detention area
+                var ironMat = Mat(new Color(0.22f, 0.22f, 0.24f), 0.35f, 0.75f);
+                for (int b = -2; b <= 2; b++)
+                {
+                    _world.AddChild(new MeshInstance3D
+                    {
+                        Mesh = new CylinderMesh { TopRadius = 0.025f, BottomRadius = 0.025f, Height = 0.28f, RadialSegments = 8 },
+                        Position = World(rect.GetCenter() + new Vector2(b * 0.035f, 0), TileHeight + 0.14f),
+                        MaterialOverride = ironMat,
+                    });
+                }
             }
             visual.Lot = new Node3D { Position = World(def.Type == TileType.Street ? _layout.Band(i).GetCenter() : rect.GetCenter() + inward * _layout.CornerSize * 0.2f, TileHeight + 0.03f) };
             _world.AddChild(visual.Lot);

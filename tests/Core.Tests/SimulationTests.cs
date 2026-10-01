@@ -305,7 +305,7 @@ public class InfrastructureTests
     [Fact]
     public void All_built_in_boards_are_valid()
     {
-        Assert.Equal(4, BoardLibrary.BoardIds.Count);
+        Assert.Equal(7, BoardLibrary.BoardIds.Count);
         foreach (var b in BoardLibrary.All) b.Validate();
         Assert.Equal(40, BoardLibrary.Get("neo_city").Count);
         Assert.Equal(24, BoardLibrary.Get("pocket_city").Count);
