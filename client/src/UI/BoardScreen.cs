@@ -227,13 +227,15 @@ public partial class BoardScreen : Screen
         _root.Vertical = !_landscape;
         if (_landscape)
         {
-            _side.CustomMinimumSize = new Vector2(Mathf.Clamp(size.X * 0.36f, 380, 580), 0);
+            _side.CustomMinimumSize = new Vector2(Mathf.Clamp(size.X * 0.22f, 250, 300), 0);
+            _side.SizeFlagsHorizontal = SizeFlags.Fill;
             _side.SizeFlagsVertical = SizeFlags.ExpandFill;
         }
         else
         {
-            _side.CustomMinimumSize = new Vector2(0, Mathf.Clamp(size.Y * 0.46f, 340, 720));
+            _side.CustomMinimumSize = new Vector2(0, Mathf.Clamp(size.Y * 0.28f, 200, 300));
             _side.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            _side.SizeFlagsVertical = SizeFlags.Fill;
         }
     }
 
@@ -241,33 +243,48 @@ public partial class BoardScreen : Screen
 
     private Control BuildSidePanel()
     {
-        _turnLabel = Ui.Label("", 21, Tokens.Text, bold: true);
+        _turnLabel = Ui.Label("", 15, Tokens.Text, bold: true);
         _turnLabel.ClipText = true;
         _turnLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _roundLabel = Ui.Label("", 13, Tokens.Muted, mono: true);
-        _timerLabel = Ui.Label("", 15, Tokens.Accent, mono: true, bold: true);
-        var top = Ui.HBox(8, Ui.VBox(0, _roundLabel, _turnLabel).Expand(), _timerLabel,
-            Ui.Button("≡", OpenMenu, ButtonKind.Secondary));
+        _roundLabel = Ui.Label("", 11, Tokens.Muted, mono: true);
+        _timerLabel = Ui.Label("", 13, Tokens.Accent, mono: true, bold: true);
+        var menuBtn = new Button { Text = "≡", FocusMode = Control.FocusModeEnum.None, CustomMinimumSize = new Vector2(Ui.Px(32), Ui.Px(28)) };
+        Ui.Style(menuBtn, ButtonKind.Secondary);
+        menuBtn.AddThemeFontSizeOverride("font_size", Ui.Px(14));
+        menuBtn.Pressed += () =>
+        {
+            Ui.ClickSound?.Invoke();
+            OpenMenu();
+        };
+        var top = Ui.HBox(6, Ui.VBox(0, _roundLabel, _turnLabel).Expand(), _timerLabel, menuBtn);
 
-        _players = Ui.VBox(4);
+        _players = Ui.VBox(2);
         _feed = Ui.VBox(2);
         _feed.SizeFlagsVertical = SizeFlags.ExpandFill;
         var feedScroll = Ui.Scroll(_feed);
-        feedScroll.CustomMinimumSize = new Vector2(0, 80);
-        _actions = Ui.VBox(8);
+        feedScroll.CustomMinimumSize = new Vector2(0, 56);
+        feedScroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+        _actions = Ui.VBox(6);
 
-        var column = Ui.VBox(12, top, _players, Ui.Caption("Activity"), feedScroll, _actions);
+        var column = Ui.VBox(6, top, _players, Ui.Caption("Activity"), feedScroll, _actions);
+        column.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        column.SizeFlagsVertical = SizeFlags.ExpandFill;
+
+        var panelScroll = Ui.Scroll(column);
+        panelScroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        panelScroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+
         var panel = new PanelContainer();
-        panel.AddThemeStyleboxOverride("panel", Ui.Box(Tokens.Panel, 0, Tokens.Line, 1, 18, 16));
-        panel.AddChild(column);
+        panel.AddThemeStyleboxOverride("panel", Ui.Box(Tokens.Panel, 0, Tokens.Line, 1, 8, 6));
+        panel.AddChild(panelScroll);
         return panel;
     }
 
     private void AddFeed(string text, Color? color = null)
     {
-        var label = Ui.Wrapped(text, 14, color ?? Tokens.Muted);
+        var label = Ui.Wrapped(text, 12, color ?? Tokens.Muted);
         _feed.AddChild(label);
-        while (_feed.GetChildCount() > 30) _feed.GetChild(0).Free();
+        while (_feed.GetChildCount() > 25) _feed.GetChild(0).Free();
         if (_feed.GetParent() is ScrollContainer scroll)
             Callable.From(() => scroll.ScrollVertical = (int)scroll.GetVScrollBar().MaxValue).CallDeferred();
     }
@@ -444,11 +461,11 @@ public partial class BoardScreen : Screen
         foreach (var p in s.Players)
         {
             var color = Tokens.Player(p.Id);
-            var dot = new ColorRect { Color = p.Bankrupt ? Tokens.Muted : color, CustomMinimumSize = new Vector2(6, 34) };
-            var name = Ui.Label(p.Name, 16, p.Bankrupt ? Tokens.Muted : Tokens.Text, bold: p.Id == s.CurrentPlayer);
+            var dot = new ColorRect { Color = p.Bankrupt ? Tokens.Muted : color, CustomMinimumSize = new Vector2(4, 22) };
+            var name = Ui.Label(p.Name, 13, p.Bankrupt ? Tokens.Muted : Tokens.Text, bold: p.Id == s.CurrentPlayer);
             name.ClipText = true;
             name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            var row = Ui.HBox(6, dot, name);
+            var row = Ui.HBox(4, dot, name);
             if (p.Bankrupt) row.AddChild(Ui.Chip("OUT", Tokens.Muted));
             else
             {
@@ -458,12 +475,12 @@ public partial class BoardScreen : Screen
                 if (lobby != null && p.Id < lobby.Seats.Count && !lobby.Seats[p.Id].Connected && !p.IsBot)
                     row.AddChild(Ui.Chip("OFFLINE", Tokens.Bad));
                 int owned = s.OwnedBy(p.Id).Count();
-                row.AddChild(Ui.Label($"⌂{owned}", 14, Tokens.Muted, mono: true));
-                row.AddChild(Ui.Label(Ui.Money(Currency, p.Money), 16, Tokens.Text, mono: true, bold: true).MinSize(Ui.Px(80), 0));
+                row.AddChild(Ui.Label($"⌂{owned}", 12, Tokens.Muted, mono: true));
+                row.AddChild(Ui.Label(Ui.Money(Currency, p.Money), 13, Tokens.Text, mono: true, bold: true).MinSize(Ui.Px(58), 0));
             }
             var panel = new PanelContainer();
             bool current = p.Id == s.CurrentPlayer && !s.IsOver;
-            panel.AddThemeStyleboxOverride("panel", Ui.Box(current ? Tokens.PanelHi : Colors.Transparent, 8, current ? color : Colors.Transparent, current ? 1 : 0, 8, 5));
+            panel.AddThemeStyleboxOverride("panel", Ui.Box(current ? Tokens.PanelHi : Colors.Transparent, 6, current ? color : Colors.Transparent, current ? 1 : 0, 6, 2));
             panel.AddChild(row);
             int id = p.Id;
             panel.GuiInput += e =>
@@ -557,6 +574,7 @@ public partial class BoardScreen : Screen
     private Button Act(string text, GameCommand command, ButtonKind kind = ButtonKind.Secondary, bool enabled = true)
     {
         var button = Ui.Button(text, () => Send(command), kind);
+        button.CustomMinimumSize = new Vector2(0, Ui.Px(42));
         button.Disabled = !enabled;
         button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         return button;
@@ -624,17 +642,29 @@ public partial class BoardScreen : Screen
                     primary.AddChild(Act(Loc.T("End turn"), new EndTurnCommand(seat), ButtonKind.Primary, ready));
                     break;
             }
-            secondary.AddChild(Ui.Button(Loc.T("Portfolio"), OpenPortfolio).Expand());
-            if (s.Rules.TradingEnabled) secondary.AddChild(Ui.Button(Loc.T("Trade"), () => OpenTradeComposer(-1, null)).Expand());
+            var portBtn = Ui.Button(Loc.T("Portfolio"), OpenPortfolio).Expand();
+            portBtn.CustomMinimumSize = new Vector2(0, Ui.Px(40));
+            secondary.AddChild(portBtn);
+            if (s.Rules.TradingEnabled)
+            {
+                var tradeBtn = Ui.Button(Loc.T("Trade"), () => OpenTradeComposer(-1, null)).Expand();
+                tradeBtn.CustomMinimumSize = new Vector2(0, Ui.Px(40));
+                secondary.AddChild(tradeBtn);
+            }
             if (s.Phase != TurnPhase.BuyDecision)
             {
                 if (s.Rules.AbilitiesEnabled && me.Ability is Ability.Investor or Ability.Negotiator && !me.AbilityUsed)
                     secondary.AddChild(Act(me.Ability.ToString(), new UseAbilityCommand(seat), ButtonKind.Secondary, ready));
-                if (s.Project != null) secondary.AddChild(Ui.Button("Project", OpenProject).Expand());
+                if (s.Project != null)
+                {
+                    var projBtn = Ui.Button("Project", OpenProject).Expand();
+                    projBtn.CustomMinimumSize = new Vector2(0, Ui.Px(40));
+                    secondary.AddChild(projBtn);
+                }
             }
         }
 
-        if (status.Length > 0) _actions.AddChild(Ui.Wrapped(status, 15, Tokens.Muted));
+        if (status.Length > 0) _actions.AddChild(Ui.Wrapped(status, 13, Tokens.Muted));
         if (primary.GetChildCount() > 0) _actions.AddChild(primary);
         else primary.QueueFree();
         if (secondary.GetChildCount() > 0) _actions.AddChild(secondary);
