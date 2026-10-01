@@ -88,6 +88,7 @@ jobs:
           "$GODOT" --headless --path client --import
           mkdir -p client/android/build
           unzip -q "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable.mono/android_source.zip" -d client/android/build
+          cp "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable.mono/version.txt" client/android/build/.build_version
           chmod +x client/android/build/gradlew
           tools/build-android.sh "Android (Gradle)"
 
