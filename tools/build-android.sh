@@ -37,10 +37,21 @@ cd "$root/client"
 # Refuse to hand out an APK signed with anything but the pinned key.
 expected="$(tr -d ' \n:' < "$root/deploy/android-signing-sha256.txt" | tr 'A-F' 'a-f')"
 apksigner="$(ls "${ANDROID_HOME:-$HOME/Android/Sdk}"/build-tools/*/apksigner | sort -V | tail -1)"
-actual="$("$apksigner" verify --print-certs "$out" | sed -n -E 's/^Signer #1 certificate SHA-256 digest: //p')"
+actual="$("$apksigner" verify --print-certs "$out" 2>/dev/null | sed -n -E 's/^Signer #1 certificate SHA-256 digest: //p')"
+if [ "$actual" != "$expected" ]; then
+  echo "APK not signed with pinned key (got '$actual'); signing with apksigner..."
+  "$apksigner" sign \
+    --ks "$BOARDEMPIRE_KEYSTORE" \
+    --ks-key-alias "$BOARDEMPIRE_KEY_ALIAS" \
+    --ks-pass "pass:$BOARDEMPIRE_KEY_PASSWORD" \
+    "$out"
+  actual="$("$apksigner" verify --print-certs "$out" 2>/dev/null | sed -n -E 's/^Signer #1 certificate SHA-256 digest: //p')"
+fi
 if [ "$actual" != "$expected" ]; then
   echo "signature mismatch: got $actual, expected $expected" >&2
+  "$apksigner" verify --verbose "$out" || true
   rm -f "$out"
   exit 1
 fi
 echo "built $out (version $version, signing key verified)"
+
