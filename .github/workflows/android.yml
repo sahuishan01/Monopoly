@@ -86,7 +86,9 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           SETTINGS
           "$GODOT" --headless --path client --import
-          "$GODOT" --headless --path client --install-android-build-template
+          mkdir -p client/android/build
+          unzip -q "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable.mono/android_source.zip" -d client/android/build
+          chmod +x client/android/build/gradlew
           tools/build-android.sh "Android (Gradle)"
 
       - uses: actions/upload-artifact@v4
