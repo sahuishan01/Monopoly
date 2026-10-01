@@ -1,0 +1,649 @@
+{
+  "BoardId": "pocket_city",
+  "Name": "Pocket City",
+  "Theme": "city",
+  "Currency": "₹",
+  "JailFine": 50,
+  "TransitRents": [
+    40,
+    100
+  ],
+  "UtilityMultipliers": [
+    6
+  ],
+  "Tiles": [
+    {
+      "Id": "start",
+      "Name": "Tram Stop Zero",
+      "Type": "Start",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pocket_01",
+      "Name": "Wick Lane",
+      "Type": "Street",
+      "District": "lane",
+      "Price": 60,
+      "HouseCost": 50,
+      "Rents": [
+        2,
+        10,
+        30,
+        80,
+        104,
+        128
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "civic_1",
+      "Name": "City Fund",
+      "Type": "Civic",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pocket_02",
+      "Name": "Ember Lane",
+      "Type": "Street",
+      "District": "lane",
+      "Price": 80,
+      "HouseCost": 50,
+      "Rents": [
+        4,
+        20,
+        60,
+        160,
+        208,
+        256
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "transit_1",
+      "Name": "Low Line",
+      "Type": "Transit",
+      "District": null,
+      "Price": 150,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pocket_03",
+      "Name": "Barge Row",
+      "Type": "Street",
+      "District": "canal",
+      "Price": 100,
+      "HouseCost": 50,
+      "Rents": [
+        6,
+        30,
+        90,
+        240,
+        312,
+        384
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "jail",
+      "Name": "Detention Block",
+      "Type": "Jail",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pocket_04",
+      "Name": "Lock Keeper's Way",
+      "Type": "Street",
+      "District": "canal",
+      "Price": 120,
+      "HouseCost": 50,
+      "Rents": [
+        8,
+        40,
+        120,
+        320,
+        416,
+        512
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "utility_1",
+      "Name": "Solar Grid",
+      "Type": "Utility",
+      "District": null,
+      "Price": 120,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pocket_05",
+      "Name": "Petal Passage",
+      "Type": "Street",
+      "District": "bloom",
+      "Price": 140,
+      "HouseCost": 100,
+      "Rents": [
+        10,
+        50,
+        150,
+        400,
+        520,
+        640
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "fortune_1",
+      "Name": "Fortune",
+      "Type": "Fortune",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pocket_06",
+      "Name": "Blossom Arcade",
+      "Type": "Street",
+      "District": "bloom",
+      "Price": 160,
+      "HouseCost": 100,
+      "Rents": [
+        12,
+        60,
+        180,
+        480,
+        624,
+        768
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "plaza",
+      "Name": "Pocket Park",
+      "Type": "Plaza",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pocket_07",
+      "Name": "Kiln Street",
+      "Type": "Street",
+      "District": "brick",
+      "Price": 180,
+      "HouseCost": 100,
+      "Rents": [
+        14,
+        70,
+        210,
+        560,
+        728,
+        896
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "transit_2",
+      "Name": "High Line",
+      "Type": "Transit",
+      "District": null,
+      "Price": 150,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pocket_08",
+      "Name": "Mason's Yard",
+      "Type": "Street",
+      "District": "brick",
+      "Price": 200,
+      "HouseCost": 100,
+      "Rents": [
+        16,
+        80,
+        240,
+        640,
+        832,
+        1024
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "tax_1",
+      "Name": "City Levy",
+      "Type": "Tax",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 100,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pocket_09",
+      "Name": "Prism Walk",
+      "Type": "Street",
+      "District": "glass",
+      "Price": 220,
+      "HouseCost": 100,
+      "Rents": [
+        18,
+        90,
+        270,
+        720,
+        936,
+        1152
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "gotojail",
+      "Name": "Customs Check",
+      "Type": "GoToJail",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pocket_10",
+      "Name": "Mirror Court",
+      "Type": "Street",
+      "District": "glass",
+      "Price": 240,
+      "HouseCost": 150,
+      "Rents": [
+        20,
+        100,
+        300,
+        800,
+        1040,
+        1280
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "fortune_2",
+      "Name": "Fortune",
+      "Type": "Fortune",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pocket_11",
+      "Name": "Regent Rise",
+      "Type": "Street",
+      "District": "crown",
+      "Price": 300,
+      "HouseCost": 150,
+      "Rents": [
+        26,
+        130,
+        390,
+        1040,
+        1352,
+        1664
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "civic_2",
+      "Name": "City Fund",
+      "Type": "Civic",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pocket_12",
+      "Name": "Crown Terrace",
+      "Type": "Street",
+      "District": "crown",
+      "Price": 350,
+      "HouseCost": 150,
+      "Rents": [
+        31,
+        155,
+        465,
+        1240,
+        1612,
+        1984
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    }
+  ],
+  "Districts": [
+    {
+      "Id": "lane",
+      "Name": "Lantern Lanes",
+      "Color": "#8d5a3b",
+      "Glyph": "anchor"
+    },
+    {
+      "Id": "canal",
+      "Name": "Canal Side",
+      "Color": "#69c8ec",
+      "Glyph": "diamond"
+    },
+    {
+      "Id": "bloom",
+      "Name": "Bloom Street",
+      "Color": "#e0559b",
+      "Glyph": "leaf"
+    },
+    {
+      "Id": "brick",
+      "Name": "Brickworks",
+      "Color": "#f29a2e",
+      "Glyph": "triangle"
+    },
+    {
+      "Id": "glass",
+      "Name": "Glass Mile",
+      "Color": "#2faa5f",
+      "Glyph": "wave"
+    },
+    {
+      "Id": "crown",
+      "Name": "Crown Heights",
+      "Color": "#2f55c8",
+      "Glyph": "star"
+    }
+  ],
+  "FortuneCards": [
+    {
+      "Id": "f_start",
+      "Text": "A fresh start! Advance to the start tile.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "start"
+    },
+    {
+      "Id": "f_prime",
+      "Text": "A VIP invitation arrives. Advance to the most exclusive address in town.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "pocket_12"
+    },
+    {
+      "Id": "f_mid",
+      "Text": "You are called to a ribbon cutting. Advance there; collect salary if you pass start.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "pocket_08"
+    },
+    {
+      "Id": "f_early",
+      "Text": "A friend needs help moving. Advance there; collect salary if you pass start.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "pocket_04"
+    },
+    {
+      "Id": "f_transit",
+      "Text": "Catch the express. Advance to the first transit line.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "transit_1"
+    },
+    {
+      "Id": "f_near_transit",
+      "Text": "Rush hour! Advance to the nearest transit line. If owned, pay double fare.",
+      "Effect": "MoveToNearestTransit",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_near_utility",
+      "Text": "Meter inspection. Advance to the nearest utility. If owned, pay ten times your roll.",
+      "Effect": "MoveToNearestUtility",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_dividend",
+      "Text": "Your startup stake pays a dividend. Collect 50.",
+      "Effect": "Collect",
+      "Amount": 50,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_back3",
+      "Text": "Wrong turn. Go back three tiles.",
+      "Effect": "MoveRelative",
+      "Amount": -3,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_jail",
+      "Text": "Paperwork irregularities. Go directly to detention.",
+      "Effect": "GoToJail",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_card",
+      "Text": "A lawyer owes you a favour. Keep this card to leave detention for free.",
+      "Effect": "JailCard",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_repairs",
+      "Text": "Storm damage. Pay 25 per building and 100 per landmark.",
+      "Effect": "PayPerBuilding",
+      "Amount": 25,
+      "Amount2": 100,
+      "Target": null
+    },
+    {
+      "Id": "f_fine",
+      "Text": "Speeding ticket. Pay 15.",
+      "Effect": "Pay",
+      "Amount": 15,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_chair",
+      "Text": "You host the neighbourhood gala. Pay each player 50.",
+      "Effect": "PayEach",
+      "Amount": 50,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_loan",
+      "Text": "Your investment matures. Collect 150.",
+      "Effect": "Collect",
+      "Amount": 150,
+      "Amount2": 0,
+      "Target": null
+    }
+  ],
+  "CivicCards": [
+    {
+      "Id": "c_start",
+      "Text": "The city thanks you. Advance to the start tile.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "start"
+    },
+    {
+      "Id": "c_bank",
+      "Text": "Accounting error in your favour. Collect 200.",
+      "Effect": "Collect",
+      "Amount": 200,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_doctor",
+      "Text": "Clinic visit. Pay 50.",
+      "Effect": "Pay",
+      "Amount": 50,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_stock",
+      "Text": "You sell some shares. Collect 50.",
+      "Effect": "Collect",
+      "Amount": 50,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_card",
+      "Text": "Community service record. Keep this card to leave detention for free.",
+      "Effect": "JailCard",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_jail",
+      "Text": "Caught jaywalking, again. Go directly to detention.",
+      "Effect": "GoToJail",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_festival",
+      "Text": "You organise a street festival. Collect 25 from every player.",
+      "Effect": "CollectFromEach",
+      "Amount": 25,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_refund",
+      "Text": "Tax refund. Collect 20.",
+      "Effect": "Collect",
+      "Amount": 20,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_insurance",
+      "Text": "Insurance payout. Collect 100.",
+      "Effect": "Collect",
+      "Amount": 100,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_hospital",
+      "Text": "Hospital fees. Pay 100.",
+      "Effect": "Pay",
+      "Amount": 100,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_school",
+      "Text": "School fund drive. Pay 50.",
+      "Effect": "Pay",
+      "Amount": 50,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_consult",
+      "Text": "Consulting fee received. Collect 25.",
+      "Effect": "Collect",
+      "Amount": 25,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_street",
+      "Text": "Street upgrade assessment. Pay 40 per building and 115 per landmark.",
+      "Effect": "PayPerBuilding",
+      "Amount": 40,
+      "Amount2": 115,
+      "Target": null
+    },
+    {
+      "Id": "c_prize",
+      "Text": "Second prize in a design contest. Collect 10.",
+      "Effect": "Collect",
+      "Amount": 10,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_inherit",
+      "Text": "A distant relative remembers you. Collect 100.",
+      "Effect": "Collect",
+      "Amount": 100,
+      "Amount2": 0,
+      "Target": null
+    }
+  ],
+  "Count": 24,
+  "SideLength": 6,
+  "JailIndex": 6
+}

@@ -1,0 +1,25 @@
+bin/
+obj/
+.vs/
+*.user
+.env
+*.keystore
+*.jks
+*.pem
+*.key
+
+# Godot
+client/.godot/
+client/android/build/
+client/build/
+client/*.apk
+client/*.aab
+*.import.bak
+
+# Android plugin
+android/**/build/
+android/**/.gradle/
+android/local.properties
+
+graphify-out/cache/
+TestResults/

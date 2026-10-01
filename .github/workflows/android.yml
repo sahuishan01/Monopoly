@@ -1,0 +1,87 @@
+name: Android build
+
+# Runs on release tags only: builds the Nearby plugin, then the APK and AAB with Gradle so that
+# the plugin and its Play Services dependency are included.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.7.2
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Build the Nearby Connections plugin
+        working-directory: android/NearbyConnectionsPlugin
+        run: gradle :plugin:deployToGodot
+
+      - name: Install Godot and export templates
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64.zip"
+          unzip -q godot.zip -d "$HOME/godot"
+          echo "GODOT=$(ls $HOME/godot/*/Godot_v*_mono_linux.x86_64)" >> "$GITHUB_ENV"
+          curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_mono_export_templates.tpz"
+          mkdir -p "$HOME/.local/share/godot/export_templates"
+          unzip -q templates.tpz -d "$HOME/.local/share/godot/export_templates"
+          mv "$HOME/.local/share/godot/export_templates/templates" "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable.mono"
+
+      - name: Signing key
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "HAVE_RELEASE_KEY=1" >> "$GITHUB_ENV"
+          fi
+          keytool -genkeypair -keystore "$RUNNER_TEMP/debug.keystore" -storepass android -keypass android \
+            -alias androiddebugkey -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+
+      - name: Export
+        working-directory: client
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ runner.temp }}/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ runner.temp }}/release.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.RELEASE_KEY_ALIAS }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          mkdir -p build "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<SETTINGS
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          SETTINGS
+          "$GODOT" --headless --path . --import
+          "$GODOT" --headless --path . --install-android-build-template
+          "$GODOT" --headless --path . --export-debug "Android (Gradle)" build/BoardEmpire-debug.apk
+          if [ -n "$HAVE_RELEASE_KEY" ]; then
+            "$GODOT" --headless --path . --export-release "Android (Gradle)" build/BoardEmpire.apk
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boardempire-android
+          path: client/build/*.apk

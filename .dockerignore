@@ -1,0 +1,9 @@
+**/bin
+**/obj
+client
+android
+tests
+tools
+graphify-out
+.git
+.env

@@ -1,0 +1,49 @@
+# BoardEmpire online stack: match server + PostgreSQL + Redis.
+#   cp deploy/.env.example .env && edit the secrets, then: podman compose up -d
+# The server is published on loopback only; put the reverse proxy (Caddy) in front of it and
+# route WebSocket traffic for /ws/* without basic auth.
+services:
+  server:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    image: boardempire-server:latest
+    container_name: boardempire-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      BoardEmpire__TokenSecret: ${BOARDEMPIRE_TOKEN_SECRET:?set BOARDEMPIRE_TOKEN_SECRET in .env}
+      BoardEmpire__Postgres: Host=postgres;Username=boardempire;Password=${BOARDEMPIRE_DB_PASSWORD:?set BOARDEMPIRE_DB_PASSWORD in .env};Database=boardempire
+      BoardEmpire__Redis: redis:6379
+      BoardEmpire__InstanceId: ${HOSTNAME:-boardempire-1}
+    ports:
+      - "127.0.0.1:${BOARDEMPIRE_PORT:-8091}:8080"
+
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: boardempire-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: boardempire
+      POSTGRES_PASSWORD: ${BOARDEMPIRE_DB_PASSWORD:?set BOARDEMPIRE_DB_PASSWORD in .env}
+      POSTGRES_DB: boardempire
+    volumes:
+      - boardempire-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boardempire -d boardempire"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: boardempire-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+
+volumes:
+  boardempire-db:

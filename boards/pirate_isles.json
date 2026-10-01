@@ -1,0 +1,910 @@
+{
+  "BoardId": "pirate_isles",
+  "Name": "Pirate Isles",
+  "Theme": "pirate",
+  "Currency": "⚓",
+  "JailFine": 50,
+  "TransitRents": [
+    25,
+    50,
+    100,
+    200
+  ],
+  "UtilityMultipliers": [
+    4,
+    10
+  ],
+  "Tiles": [
+    {
+      "Id": "start",
+      "Name": "Home Port",
+      "Type": "Start",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_01",
+      "Name": "Barnacle Wharf",
+      "Type": "Street",
+      "District": "shanty",
+      "Price": 60,
+      "HouseCost": 50,
+      "Rents": [
+        2,
+        10,
+        30,
+        90,
+        160,
+        250
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "civic_1",
+      "Name": "Crew's Chest",
+      "Type": "Civic",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_02",
+      "Name": "Driftwood Shack",
+      "Type": "Street",
+      "District": "shanty",
+      "Price": 60,
+      "HouseCost": 50,
+      "Rents": [
+        4,
+        20,
+        60,
+        180,
+        320,
+        450
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "tax_1",
+      "Name": "Crown Tithe",
+      "Type": "Tax",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 200,
+      "IsOwnable": false
+    },
+    {
+      "Id": "transit_1",
+      "Name": "South Ferry",
+      "Type": "Transit",
+      "District": null,
+      "Price": 200,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_03",
+      "Name": "Pearl Shallows",
+      "Type": "Street",
+      "District": "reef",
+      "Price": 100,
+      "HouseCost": 50,
+      "Rents": [
+        6,
+        30,
+        90,
+        270,
+        400,
+        550
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "fortune_1",
+      "Name": "Message in a Bottle",
+      "Type": "Fortune",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_04",
+      "Name": "Turtle Bank",
+      "Type": "Street",
+      "District": "reef",
+      "Price": 100,
+      "HouseCost": 50,
+      "Rents": [
+        6,
+        30,
+        90,
+        270,
+        400,
+        550
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_05",
+      "Name": "Siren's Rock",
+      "Type": "Street",
+      "District": "reef",
+      "Price": 120,
+      "HouseCost": 50,
+      "Rents": [
+        8,
+        40,
+        100,
+        300,
+        450,
+        600
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "jail",
+      "Name": "The Brig",
+      "Type": "Jail",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_06",
+      "Name": "Flamingo Flats",
+      "Type": "Street",
+      "District": "lagoon",
+      "Price": 140,
+      "HouseCost": 100,
+      "Rents": [
+        10,
+        50,
+        150,
+        450,
+        625,
+        750
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "utility_1",
+      "Name": "Windmill",
+      "Type": "Utility",
+      "District": null,
+      "Price": 150,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_07",
+      "Name": "Orchid Inlet",
+      "Type": "Street",
+      "District": "lagoon",
+      "Price": 140,
+      "HouseCost": 100,
+      "Rents": [
+        10,
+        50,
+        150,
+        450,
+        625,
+        750
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_08",
+      "Name": "Sunset Sandbar",
+      "Type": "Street",
+      "District": "lagoon",
+      "Price": 160,
+      "HouseCost": 100,
+      "Rents": [
+        12,
+        60,
+        180,
+        500,
+        700,
+        900
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "transit_2",
+      "Name": "West Ferry",
+      "Type": "Transit",
+      "District": null,
+      "Price": 200,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_09",
+      "Name": "Scorpion Ridge",
+      "Type": "Street",
+      "District": "dunes",
+      "Price": 180,
+      "HouseCost": 100,
+      "Rents": [
+        14,
+        70,
+        200,
+        550,
+        750,
+        950
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "civic_2",
+      "Name": "Crew's Chest",
+      "Type": "Civic",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_10",
+      "Name": "Mirage Wells",
+      "Type": "Street",
+      "District": "dunes",
+      "Price": 180,
+      "HouseCost": 100,
+      "Rents": [
+        14,
+        70,
+        200,
+        550,
+        750,
+        950
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_11",
+      "Name": "Caravan Camp",
+      "Type": "Street",
+      "District": "dunes",
+      "Price": 200,
+      "HouseCost": 100,
+      "Rents": [
+        16,
+        80,
+        220,
+        600,
+        800,
+        1000
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "plaza",
+      "Name": "Castaway Cove",
+      "Type": "Plaza",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_12",
+      "Name": "Lava Steps",
+      "Type": "Street",
+      "District": "volcano",
+      "Price": 220,
+      "HouseCost": 150,
+      "Rents": [
+        18,
+        90,
+        250,
+        700,
+        875,
+        1050
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "fortune_2",
+      "Name": "Message in a Bottle",
+      "Type": "Fortune",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_13",
+      "Name": "Cinder Village",
+      "Type": "Street",
+      "District": "volcano",
+      "Price": 220,
+      "HouseCost": 150,
+      "Rents": [
+        18,
+        90,
+        250,
+        700,
+        875,
+        1050
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_14",
+      "Name": "Dragon's Mouth",
+      "Type": "Street",
+      "District": "volcano",
+      "Price": 240,
+      "HouseCost": 150,
+      "Rents": [
+        20,
+        100,
+        300,
+        750,
+        925,
+        1100
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "transit_3",
+      "Name": "North Ferry",
+      "Type": "Transit",
+      "District": null,
+      "Price": 200,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_15",
+      "Name": "Doubloon Bay",
+      "Type": "Street",
+      "District": "gold",
+      "Price": 260,
+      "HouseCost": 150,
+      "Rents": [
+        22,
+        110,
+        330,
+        800,
+        975,
+        1150
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_16",
+      "Name": "Treasure Grotto",
+      "Type": "Street",
+      "District": "gold",
+      "Price": 260,
+      "HouseCost": 150,
+      "Rents": [
+        22,
+        110,
+        330,
+        800,
+        975,
+        1150
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "utility_2",
+      "Name": "Freshwater Spring",
+      "Type": "Utility",
+      "District": null,
+      "Price": 150,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_17",
+      "Name": "Idol Temple",
+      "Type": "Street",
+      "District": "gold",
+      "Price": 280,
+      "HouseCost": 150,
+      "Rents": [
+        24,
+        120,
+        360,
+        850,
+        1025,
+        1200
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "gotojail",
+      "Name": "Navy Patrol",
+      "Type": "GoToJail",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_18",
+      "Name": "Parrot Canopy",
+      "Type": "Street",
+      "District": "jungle",
+      "Price": 300,
+      "HouseCost": 200,
+      "Rents": [
+        26,
+        130,
+        390,
+        900,
+        1100,
+        1275
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "pirate_isles_19",
+      "Name": "Vine Bridge",
+      "Type": "Street",
+      "District": "jungle",
+      "Price": 300,
+      "HouseCost": 200,
+      "Rents": [
+        26,
+        130,
+        390,
+        900,
+        1100,
+        1275
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "civic_3",
+      "Name": "Crew's Chest",
+      "Type": "Civic",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_20",
+      "Name": "Waterfall Hideout",
+      "Type": "Street",
+      "District": "jungle",
+      "Price": 320,
+      "HouseCost": 200,
+      "Rents": [
+        28,
+        150,
+        450,
+        1000,
+        1200,
+        1400
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "transit_4",
+      "Name": "East Ferry",
+      "Type": "Transit",
+      "District": null,
+      "Price": 200,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "fortune_3",
+      "Name": "Message in a Bottle",
+      "Type": "Fortune",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 0,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_21",
+      "Name": "Admiral's Quarter",
+      "Type": "Street",
+      "District": "fort",
+      "Price": 350,
+      "HouseCost": 200,
+      "Rents": [
+        35,
+        175,
+        500,
+        1100,
+        1300,
+        1500
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    },
+    {
+      "Id": "tax_2",
+      "Name": "Governor's Tax",
+      "Type": "Tax",
+      "District": null,
+      "Price": 0,
+      "HouseCost": 0,
+      "Rents": [],
+      "TaxAmount": 100,
+      "IsOwnable": false
+    },
+    {
+      "Id": "pirate_isles_22",
+      "Name": "Governor's Keep",
+      "Type": "Street",
+      "District": "fort",
+      "Price": 400,
+      "HouseCost": 200,
+      "Rents": [
+        50,
+        200,
+        600,
+        1400,
+        1700,
+        2000
+      ],
+      "TaxAmount": 0,
+      "IsOwnable": true
+    }
+  ],
+  "Districts": [
+    {
+      "Id": "shanty",
+      "Name": "Shanty Shoals",
+      "Color": "#8d5a3b",
+      "Glyph": "anchor"
+    },
+    {
+      "Id": "reef",
+      "Name": "Coral Reef",
+      "Color": "#69c8ec",
+      "Glyph": "diamond"
+    },
+    {
+      "Id": "lagoon",
+      "Name": "Rose Lagoon",
+      "Color": "#e0559b",
+      "Glyph": "leaf"
+    },
+    {
+      "Id": "dunes",
+      "Name": "Amber Dunes",
+      "Color": "#f29a2e",
+      "Glyph": "triangle"
+    },
+    {
+      "Id": "volcano",
+      "Name": "Ember Peak",
+      "Color": "#e23b3b",
+      "Glyph": "square"
+    },
+    {
+      "Id": "gold",
+      "Name": "Gold Coast",
+      "Color": "#f2d53c",
+      "Glyph": "hexagon"
+    },
+    {
+      "Id": "jungle",
+      "Name": "Emerald Jungle",
+      "Color": "#2faa5f",
+      "Glyph": "wave"
+    },
+    {
+      "Id": "fort",
+      "Name": "Royal Fort",
+      "Color": "#2f55c8",
+      "Glyph": "star"
+    }
+  ],
+  "FortuneCards": [
+    {
+      "Id": "f_start",
+      "Text": "A fresh start! Advance to the start tile.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "start"
+    },
+    {
+      "Id": "f_prime",
+      "Text": "A VIP invitation arrives. Advance to the most exclusive address in town.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "pirate_isles_22"
+    },
+    {
+      "Id": "f_mid",
+      "Text": "You are called to a ribbon cutting. Advance there; collect salary if you pass start.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "pirate_isles_14"
+    },
+    {
+      "Id": "f_early",
+      "Text": "A friend needs help moving. Advance there; collect salary if you pass start.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "pirate_isles_06"
+    },
+    {
+      "Id": "f_transit",
+      "Text": "Catch the express. Advance to the first transit line.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "transit_1"
+    },
+    {
+      "Id": "f_near_transit",
+      "Text": "Rush hour! Advance to the nearest transit line. If owned, pay double fare.",
+      "Effect": "MoveToNearestTransit",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_near_utility",
+      "Text": "Meter inspection. Advance to the nearest utility. If owned, pay ten times your roll.",
+      "Effect": "MoveToNearestUtility",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_dividend",
+      "Text": "Your startup stake pays a dividend. Collect 50.",
+      "Effect": "Collect",
+      "Amount": 50,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_back3",
+      "Text": "Wrong turn. Go back three tiles.",
+      "Effect": "MoveRelative",
+      "Amount": -3,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_jail",
+      "Text": "Paperwork irregularities. Go directly to detention.",
+      "Effect": "GoToJail",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_card",
+      "Text": "A lawyer owes you a favour. Keep this card to leave detention for free.",
+      "Effect": "JailCard",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_repairs",
+      "Text": "Storm damage. Pay 25 per building and 100 per landmark.",
+      "Effect": "PayPerBuilding",
+      "Amount": 25,
+      "Amount2": 100,
+      "Target": null
+    },
+    {
+      "Id": "f_fine",
+      "Text": "Speeding ticket. Pay 15.",
+      "Effect": "Pay",
+      "Amount": 15,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_chair",
+      "Text": "You host the neighbourhood gala. Pay each player 50.",
+      "Effect": "PayEach",
+      "Amount": 50,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "f_loan",
+      "Text": "Your investment matures. Collect 150.",
+      "Effect": "Collect",
+      "Amount": 150,
+      "Amount2": 0,
+      "Target": null
+    }
+  ],
+  "CivicCards": [
+    {
+      "Id": "c_start",
+      "Text": "The city thanks you. Advance to the start tile.",
+      "Effect": "MoveTo",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": "start"
+    },
+    {
+      "Id": "c_bank",
+      "Text": "Accounting error in your favour. Collect 200.",
+      "Effect": "Collect",
+      "Amount": 200,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_doctor",
+      "Text": "Clinic visit. Pay 50.",
+      "Effect": "Pay",
+      "Amount": 50,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_stock",
+      "Text": "You sell some shares. Collect 50.",
+      "Effect": "Collect",
+      "Amount": 50,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_card",
+      "Text": "Community service record. Keep this card to leave detention for free.",
+      "Effect": "JailCard",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_jail",
+      "Text": "Caught jaywalking, again. Go directly to detention.",
+      "Effect": "GoToJail",
+      "Amount": 0,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_festival",
+      "Text": "You organise a street festival. Collect 25 from every player.",
+      "Effect": "CollectFromEach",
+      "Amount": 25,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_refund",
+      "Text": "Tax refund. Collect 20.",
+      "Effect": "Collect",
+      "Amount": 20,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_insurance",
+      "Text": "Insurance payout. Collect 100.",
+      "Effect": "Collect",
+      "Amount": 100,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_hospital",
+      "Text": "Hospital fees. Pay 100.",
+      "Effect": "Pay",
+      "Amount": 100,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_school",
+      "Text": "School fund drive. Pay 50.",
+      "Effect": "Pay",
+      "Amount": 50,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_consult",
+      "Text": "Consulting fee received. Collect 25.",
+      "Effect": "Collect",
+      "Amount": 25,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_street",
+      "Text": "Street upgrade assessment. Pay 40 per building and 115 per landmark.",
+      "Effect": "PayPerBuilding",
+      "Amount": 40,
+      "Amount2": 115,
+      "Target": null
+    },
+    {
+      "Id": "c_prize",
+      "Text": "Second prize in a design contest. Collect 10.",
+      "Effect": "Collect",
+      "Amount": 10,
+      "Amount2": 0,
+      "Target": null
+    },
+    {
+      "Id": "c_inherit",
+      "Text": "A distant relative remembers you. Collect 100.",
+      "Effect": "Collect",
+      "Amount": 100,
+      "Amount2": 0,
+      "Target": null
+    }
+  ],
+  "Count": 40,
+  "SideLength": 10,
+  "JailIndex": 10
+}
