@@ -1,7 +1,7 @@
 # HANDOFF — BoardEmpire
 
-State as of 2026-10-01. Nothing has been committed; the repository is initialised but empty
-of commits.
+State as of 2026-10-01. Pushed to `github.com/sahuishan01/Monopoly` (`main`); the `CI` workflow
+passes there. No release tag exists yet, so the Android workflow has not run.
 
 ## What exists and how it was verified
 
@@ -75,6 +75,29 @@ setting only; iOS.
   next to it with the suffix `.bak-boardempire`).
 * `.env` in the repo root holds generated secrets for the compose stack (ignored by git).
 * Port 8090 was already taken on this host, so the stack uses 8091.
+
+## Android signing (one key for every build)
+
+* Every APK, local or CI, debug or release, is signed with the same key so that a new build
+  installs as an update. Its SHA-256 is pinned in `deploy/android-signing-sha256.txt`;
+  `tools/build-android.sh` refuses to produce an APK with any other signature and never
+  falls back to a generated key.
+* The keystore and its password live outside the repo in `~/.config/boardempire/`
+  (`boardempire-release.keystore`, `signing.env`, mode 600) and in the GitHub secrets
+  `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`.
+  **Back the keystore up**: if it is lost, installed copies can never be updated.
+* Android also requires a growing versionCode. `tools/set-version.sh X.Y.Z` writes the
+  version to `project.godot` and both export presets (code = major*10000 + minor*100 + patch);
+  the Android workflow fails if the tag does not match.
+
+## Backend deployment
+
+* The compose stack runs on this host (`restart: unless-stopped`, server on 127.0.0.1:8091).
+* `/home/opc/manager/Caddyfile` has a `monopoly.algosculptor.com` block (same origin
+  certificate as the other sites; backup `Caddyfile.bak-20261001`).
+* The client's default server URL is `https://monopoly.algosculptor.com`.
+* Cloudflare has a proxied `A` record `monopoly -> 140.238.242.70`. Verified from outside:
+  `/healthz` returns 200 and two clients played a full quick match over `wss://`.
 
 ## Suggested next steps
 

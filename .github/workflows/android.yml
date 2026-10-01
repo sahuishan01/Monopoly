@@ -50,36 +50,39 @@ jobs:
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
-          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
-            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
-            echo "HAVE_RELEASE_KEY=1" >> "$GITHUB_ENV"
+          # Every build must be signed with the one permanent key, otherwise it cannot be
+          # installed as an update. Never fall back to a generated key.
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "::error::RELEASE_KEYSTORE_BASE64 secret is missing"
+            exit 1
           fi
-          keytool -genkeypair -keystore "$RUNNER_TEMP/debug.keystore" -storepass android -keypass android \
-            -alias androiddebugkey -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Check that the tag matches the game version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="$(sed -n -E 's/^config\/version="(.*)"/\1/p' client/project.godot)"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $version (run tools/set-version.sh)"
+            exit 1
+          fi
 
       - name: Export
-        working-directory: client
         env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ runner.temp }}/debug.keystore
-          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
-          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ runner.temp }}/release.keystore
-          GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.RELEASE_KEY_ALIAS }}
-          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          BOARDEMPIRE_KEYSTORE: ${{ runner.temp }}/release.keystore
+          BOARDEMPIRE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          BOARDEMPIRE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
-          mkdir -p build "$HOME/.config/godot"
+          mkdir -p "$HOME/.config/godot"
           cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<SETTINGS
           [gd_resource type="EditorSettings" format=3]
           [resource]
           export/android/android_sdk_path = "$ANDROID_HOME"
           export/android/java_sdk_path = "$JAVA_HOME"
           SETTINGS
-          "$GODOT" --headless --path . --import
-          "$GODOT" --headless --path . --install-android-build-template
-          "$GODOT" --headless --path . --export-debug "Android (Gradle)" build/BoardEmpire-debug.apk
-          if [ -n "$HAVE_RELEASE_KEY" ]; then
-            "$GODOT" --headless --path . --export-release "Android (Gradle)" build/BoardEmpire.apk
-          fi
+          "$GODOT" --headless --path client --import
+          "$GODOT" --headless --path client --install-android-build-template
+          tools/build-android.sh "Android (Gradle)"
 
       - uses: actions/upload-artifact@v4
         with:

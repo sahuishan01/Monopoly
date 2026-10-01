@@ -1,7 +1,7 @@
 # Example reverse-proxy block for the BoardEmpire server (Cloudflare origin certificate assumed).
 # The game authenticates with its own bearer tokens, so no basic auth is applied here; if you
 # add it for the REST API, keep /ws/* outside of it or WebSocket handshakes will fail.
-boardempire.example.com {
+monopoly.algosculptor.com {
     tls /certs/origin.pem /certs/origin.key
     encode zstd gzip
     reverse_proxy 127.0.0.1:8091

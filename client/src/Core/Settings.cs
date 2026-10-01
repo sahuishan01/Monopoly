@@ -60,7 +60,7 @@ public sealed class Settings
     public bool HighContrast { get; set; }
     public bool Subtitles { get; set; } = true;
 
-    public string ServerUrl { get; set; } = "https://boardempire.example.com";
+    public string ServerUrl { get; set; } = "https://monopoly.algosculptor.com";
     public string AuthToken { get; set; } = "";
     public string UserId { get; set; } = "";
     public bool AccountIsGuest { get; set; } = true;

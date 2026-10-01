@@ -72,6 +72,10 @@ cd client
 godot --headless --export-debug "Android" build/BoardEmpire-debug.apk      # works on ARM64 hosts
 ```
 
+Release builds go through `tools/build-android.sh`, which signs with the one permanent key
+(see `HANDOFF.md`) and checks the result against `deploy/android-signing-sha256.txt`. Bump the
+version with `tools/set-version.sh X.Y.Z` before each release so Android accepts the update.
+
 The `Android (Gradle)` preset additionally bundles the Nearby plugin; it needs an x86-64
 machine for the Android build tools and is what `.github/workflows/android.yml` runs.
 
