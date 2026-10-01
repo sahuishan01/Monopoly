@@ -46,7 +46,7 @@ public partial class CameraRig : Node3D
 
     public override void _Ready() => Cut(CameraShot.Overview, Vector3.Zero);
 
-    private float FitDistance() => BoardSize * (Aspect >= 1.25f ? 1.42f : 1.42f * 1.25f / Mathf.Max(0.45f, Aspect));
+    private float FitDistance() => BoardSize * (Aspect >= 1.20f ? 1.18f : 1.18f * 1.20f / Mathf.Max(0.45f, Aspect));
 
     public void Go(CameraShot shot, Vector3 focus, float yaw = 0)
     {
@@ -56,9 +56,9 @@ public partial class CameraRig : Node3D
         switch (shot)
         {
             case CameraShot.Overview:
-                _goalTarget = new Vector3(0, 0, BoardSize * 0.03f);
+                _goalTarget = new Vector3(0, 0, BoardSize * 0.02f);
                 _goalYaw = 0;
-                _goalPitch = 0.98f;
+                _goalPitch = 0.94f;
                 _goalDistance = FitDistance();
                 break;
             case CameraShot.TokenFollow:

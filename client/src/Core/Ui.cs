@@ -119,7 +119,7 @@ public static class Ui
         Tokens.Apply(settings.HighContrast);
         Scale = settings.TextScale;
         int border = settings.HighContrast ? 2 : 1;
-        var theme = new Theme { DefaultFont = Body, DefaultFontSize = Px(17) };
+        var theme = new Theme { DefaultFont = Body, DefaultFontSize = Px(19) };
 
         theme.SetColor("font_color", "Label", Tokens.Text);
         theme.SetStylebox("panel", "PanelContainer", Box(Tokens.Panel, 16, Tokens.Line, border, 18, 16));
@@ -129,17 +129,17 @@ public static class Ui
         foreach (string type in new[] { "Button", "OptionButton", "MenuButton" })
         {
             theme.SetFont("font", type, MonoBold);
-            theme.SetFontSize("font_size", type, Px(15));
+            theme.SetFontSize("font_size", type, Px(16));
             theme.SetColor("font_color", type, Tokens.Text);
             theme.SetColor("font_hover_color", type, Tokens.Text);
             theme.SetColor("font_pressed_color", type, Tokens.Text);
             theme.SetColor("font_focus_color", type, Tokens.Text);
             theme.SetColor("font_disabled_color", type, Tokens.Muted with { A = 0.6f });
-            theme.SetStylebox("normal", type, Box(Tokens.PanelHi, 12, Tokens.Line, border, 18, 12));
-            theme.SetStylebox("hover", type, Box(Tokens.PanelHi.Lightened(0.08f), 12, Tokens.Muted, border, 18, 12));
-            theme.SetStylebox("pressed", type, Box(Tokens.PanelHi.Darkened(0.15f), 12, Tokens.Accent, 2, 18, 12));
-            theme.SetStylebox("disabled", type, Box(Tokens.Panel, 12, Tokens.Line with { A = 0.5f }, border, 18, 12));
-            theme.SetStylebox("focus", type, Box(Colors.Transparent, 12, Tokens.Accent, 2, 18, 12));
+            theme.SetStylebox("normal", type, Box(Tokens.PanelHi, 12, Tokens.Line, border, 20, 13));
+            theme.SetStylebox("hover", type, Box(Tokens.PanelHi.Lightened(0.08f), 12, Tokens.Muted, border, 20, 13));
+            theme.SetStylebox("pressed", type, Box(Tokens.PanelHi.Darkened(0.15f), 12, Tokens.Accent, 2, 20, 13));
+            theme.SetStylebox("disabled", type, Box(Tokens.Panel, 12, Tokens.Line with { A = 0.5f }, border, 20, 13));
+            theme.SetStylebox("focus", type, Box(Colors.Transparent, 12, Tokens.Accent, 2, 20, 13));
         }
 
         var field = Box(Tokens.BgDeep, 10, Tokens.Line, border, 14, 10);
@@ -156,7 +156,7 @@ public static class Ui
         theme.SetColor("font_color", "PopupMenu", Tokens.Text);
         theme.SetColor("font_hover_color", "PopupMenu", Tokens.Text);
         theme.SetFont("font", "PopupMenu", Body);
-        theme.SetFontSize("font_size", "PopupMenu", Px(16));
+        theme.SetFontSize("font_size", "PopupMenu", Px(17));
         theme.SetConstant("v_separation", "PopupMenu", 12);
 
         theme.SetColor("font_color", "CheckButton", Tokens.Text);
@@ -183,7 +183,7 @@ public static class Ui
 
     // ------------------------------------------------------------------ factories
 
-    public static Label Label(string text, int size = 17, Color? color = null, bool mono = false, bool bold = false)
+    public static Label Label(string text, int size = 18, Color? color = null, bool mono = false, bool bold = false)
     {
         var label = new Label { Text = text };
         label.AddThemeFontOverride("font", mono ? (bold ? MonoBold : Mono) : (bold ? BodyBold : Body));
@@ -195,12 +195,12 @@ public static class Ui
     /// <summary>Small uppercase caption in the monospace face, used for every field label.</summary>
     public static Label Caption(string text, Color? color = null)
     {
-        var label = Label(text.ToUpperInvariant(), 12, color ?? Tokens.Muted, mono: true);
+        var label = Label(text.ToUpperInvariant(), 13, color ?? Tokens.Muted, mono: true);
         label.AddThemeConstantOverride("outline_size", 0);
         return label;
     }
 
-    public static Label Wrapped(string text, int size = 16, Color? color = null)
+    public static Label Wrapped(string text, int size = 17, Color? color = null)
     {
         var label = Label(text, size, color);
         label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -210,7 +210,7 @@ public static class Ui
 
     public static Button Button(string text, Action onPress, ButtonKind kind = ButtonKind.Secondary, int minWidth = 0)
     {
-        var button = new Button { Text = text, CustomMinimumSize = new Vector2(Px(minWidth), Px(48)), FocusMode = Control.FocusModeEnum.None };
+        var button = new Button { Text = text, CustomMinimumSize = new Vector2(Px(minWidth), Px(52)), FocusMode = Control.FocusModeEnum.None };
         Style(button, kind);
         button.Pressed += () =>
         {
@@ -328,7 +328,7 @@ public static class Ui
 
     public static OptionButton Options(IEnumerable<string> items, int selected, Action<int> onSelect)
     {
-        var option = new OptionButton { CustomMinimumSize = new Vector2(Px(160), Px(44)), FocusMode = Control.FocusModeEnum.None };
+        var option = new OptionButton { CustomMinimumSize = new Vector2(Px(160), Px(48)), FocusMode = Control.FocusModeEnum.None };
         foreach (string item in items) option.AddItem(item);
         option.Selected = selected;
         option.ItemSelected += index => onSelect((int)index);
@@ -338,7 +338,7 @@ public static class Ui
     public static CheckButton Toggle(string text, bool value, Action<bool> onToggle)
     {
         var check = new CheckButton { Text = text, ButtonPressed = value, FocusMode = Control.FocusModeEnum.None };
-        check.AddThemeFontSizeOverride("font_size", Px(16));
+        check.AddThemeFontSizeOverride("font_size", Px(17));
         check.Toggled += on => onToggle(on);
         return check;
     }
@@ -348,7 +348,7 @@ public static class Ui
         var slider = new HSlider
         {
             MinValue = min, MaxValue = max, Step = step, Value = value,
-            CustomMinimumSize = new Vector2(Px(220), Px(32)), FocusMode = Control.FocusModeEnum.None,
+            CustomMinimumSize = new Vector2(Px(220), Px(36)), FocusMode = Control.FocusModeEnum.None,
         };
         slider.ValueChanged += v => onChange((float)v);
         return slider;
@@ -359,8 +359,9 @@ public static class Ui
         var edit = new LineEdit
         {
             Text = text, PlaceholderText = placeholder, MaxLength = maxLength,
-            CustomMinimumSize = new Vector2(Px(220), Px(46)),
+            CustomMinimumSize = new Vector2(Px(220), Px(48)),
         };
+        edit.AddThemeFontSizeOverride("font_size", Px(17));
         if (onChange != null) edit.TextChanged += t => onChange(t);
         return edit;
     }
@@ -368,9 +369,9 @@ public static class Ui
     /// <summary>Coloured chip used for player identity and status tags.</summary>
     public static PanelContainer Chip(string text, Color color, bool filled = false)
     {
-        var label = Label(text, 12, filled ? Tokens.AccentInk : color, mono: true, bold: true);
+        var label = Label(text, 13, filled ? Tokens.AccentInk : color, mono: true, bold: true);
         var panel = new PanelContainer();
-        panel.AddThemeStyleboxOverride("panel", Box(filled ? color : color with { A = 0.14f }, 8, color, 1, 8, 3));
+        panel.AddThemeStyleboxOverride("panel", Box(filled ? color : color with { A = 0.14f }, 8, color, 1, 10, 4));
         panel.AddChild(label);
         return panel;
     }

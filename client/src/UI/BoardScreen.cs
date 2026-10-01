@@ -227,12 +227,12 @@ public partial class BoardScreen : Screen
         _root.Vertical = !_landscape;
         if (_landscape)
         {
-            _side.CustomMinimumSize = new Vector2(Mathf.Clamp(size.X * 0.34f, 340, 520), 0);
+            _side.CustomMinimumSize = new Vector2(Mathf.Clamp(size.X * 0.36f, 380, 580), 0);
             _side.SizeFlagsVertical = SizeFlags.ExpandFill;
         }
         else
         {
-            _side.CustomMinimumSize = new Vector2(0, Mathf.Clamp(size.Y * 0.42f, 300, 620));
+            _side.CustomMinimumSize = new Vector2(0, Mathf.Clamp(size.Y * 0.46f, 340, 720));
             _side.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         }
     }
@@ -241,11 +241,11 @@ public partial class BoardScreen : Screen
 
     private Control BuildSidePanel()
     {
-        _turnLabel = Ui.Label("", 19, Tokens.Text, bold: true);
+        _turnLabel = Ui.Label("", 21, Tokens.Text, bold: true);
         _turnLabel.ClipText = true;
         _turnLabel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _roundLabel = Ui.Label("", 12, Tokens.Muted, mono: true);
-        _timerLabel = Ui.Label("", 14, Tokens.Accent, mono: true, bold: true);
+        _roundLabel = Ui.Label("", 13, Tokens.Muted, mono: true);
+        _timerLabel = Ui.Label("", 15, Tokens.Accent, mono: true, bold: true);
         var top = Ui.HBox(8, Ui.VBox(0, _roundLabel, _turnLabel).Expand(), _timerLabel,
             Ui.Button("≡", OpenMenu, ButtonKind.Secondary));
 
@@ -253,19 +253,19 @@ public partial class BoardScreen : Screen
         _feed = Ui.VBox(2);
         _feed.SizeFlagsVertical = SizeFlags.ExpandFill;
         var feedScroll = Ui.Scroll(_feed);
-        feedScroll.CustomMinimumSize = new Vector2(0, 60);
+        feedScroll.CustomMinimumSize = new Vector2(0, 80);
         _actions = Ui.VBox(8);
 
         var column = Ui.VBox(12, top, _players, Ui.Caption("Activity"), feedScroll, _actions);
         var panel = new PanelContainer();
-        panel.AddThemeStyleboxOverride("panel", Ui.Box(Tokens.Panel, 0, Tokens.Line, 1, 16, 14));
+        panel.AddThemeStyleboxOverride("panel", Ui.Box(Tokens.Panel, 0, Tokens.Line, 1, 18, 16));
         panel.AddChild(column);
         return panel;
     }
 
     private void AddFeed(string text, Color? color = null)
     {
-        var label = Ui.Wrapped(text, 13, color ?? Tokens.Muted);
+        var label = Ui.Wrapped(text, 14, color ?? Tokens.Muted);
         _feed.AddChild(label);
         while (_feed.GetChildCount() > 30) _feed.GetChild(0).Free();
         if (_feed.GetParent() is ScrollContainer scroll)
@@ -444,8 +444,8 @@ public partial class BoardScreen : Screen
         foreach (var p in s.Players)
         {
             var color = Tokens.Player(p.Id);
-            var dot = new ColorRect { Color = p.Bankrupt ? Tokens.Muted : color, CustomMinimumSize = new Vector2(6, 30) };
-            var name = Ui.Label(p.Name, 15, p.Bankrupt ? Tokens.Muted : Tokens.Text, bold: p.Id == s.CurrentPlayer);
+            var dot = new ColorRect { Color = p.Bankrupt ? Tokens.Muted : color, CustomMinimumSize = new Vector2(6, 34) };
+            var name = Ui.Label(p.Name, 16, p.Bankrupt ? Tokens.Muted : Tokens.Text, bold: p.Id == s.CurrentPlayer);
             name.ClipText = true;
             name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             var row = Ui.HBox(6, dot, name);
@@ -458,12 +458,12 @@ public partial class BoardScreen : Screen
                 if (lobby != null && p.Id < lobby.Seats.Count && !lobby.Seats[p.Id].Connected && !p.IsBot)
                     row.AddChild(Ui.Chip("OFFLINE", Tokens.Bad));
                 int owned = s.OwnedBy(p.Id).Count();
-                row.AddChild(Ui.Label($"⌂{owned}", 13, Tokens.Muted, mono: true));
-                row.AddChild(Ui.Label(Ui.Money(Currency, p.Money), 15, Tokens.Text, mono: true, bold: true).MinSize(Ui.Px(74), 0));
+                row.AddChild(Ui.Label($"⌂{owned}", 14, Tokens.Muted, mono: true));
+                row.AddChild(Ui.Label(Ui.Money(Currency, p.Money), 16, Tokens.Text, mono: true, bold: true).MinSize(Ui.Px(80), 0));
             }
             var panel = new PanelContainer();
             bool current = p.Id == s.CurrentPlayer && !s.IsOver;
-            panel.AddThemeStyleboxOverride("panel", Ui.Box(current ? Tokens.PanelHi : Colors.Transparent, 8, current ? color : Colors.Transparent, current ? 1 : 0, 6, 3));
+            panel.AddThemeStyleboxOverride("panel", Ui.Box(current ? Tokens.PanelHi : Colors.Transparent, 8, current ? color : Colors.Transparent, current ? 1 : 0, 8, 5));
             panel.AddChild(row);
             int id = p.Id;
             panel.GuiInput += e =>

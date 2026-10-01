@@ -165,7 +165,7 @@ public partial class Board3DView : SubViewportContainer, IGameView
             _highlights.Add(highlight);
             var floater = new Label3D
             {
-                Font = Ui.MonoBold, FontSize = 72, PixelSize = 0.012f, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true,
+                Font = Ui.MonoBold, FontSize = 72, PixelSize = 0.015f, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true,
                 OutlineSize = 18, OutlineModulate = new Color(0, 0, 0, 0.85f), Visible = false,
             };
             _world.AddChild(floater);
@@ -215,7 +215,7 @@ public partial class Board3DView : SubViewportContainer, IGameView
     {
         _tiles = new TileVisual[_board.Count];
         float gap = 0.06f;
-        float pixel = 0.0068f;
+        float pixel = 0.0080f;
         for (int i = 0; i < _board.Count; i++)
         {
             var def = _board.Tiles[i];
@@ -257,9 +257,9 @@ public partial class Board3DView : SubViewportContainer, IGameView
             bool corner = _layout.IsCorner(i);
             var name = new Label3D
             {
-                Text = def.Name, Font = Ui.BodyBold, FontSize = corner ? 40 : 32, PixelSize = pixel,
-                Modulate = new Color(0.1f, 0.12f, 0.18f), OutlineSize = 0,
-                AutowrapMode = TextServer.AutowrapMode.WordSmart, Width = widthWorld / pixel * 0.9f,
+                Text = def.Name, Font = Ui.BodyBold, FontSize = corner ? 46 : 38, PixelSize = pixel,
+                Modulate = new Color(0.08f, 0.10f, 0.14f), OutlineSize = 0,
+                AutowrapMode = TextServer.AutowrapMode.WordSmart, Width = widthWorld / pixel * 0.92f,
                 RotationDegrees = new Vector3(-90, 0, 0), Position = World(nameAt, TileHeight + 0.012f),
                 HorizontalAlignment = HorizontalAlignment.Center, DoubleSided = false, LineSpacing = -4,
             };
@@ -277,7 +277,7 @@ public partial class Board3DView : SubViewportContainer, IGameView
                 _world.AddChild(visual.Strip);
                 visual.Price = new Label3D
                 {
-                    Font = Ui.MonoBold, FontSize = 30, PixelSize = pixel, Modulate = new Color(0.32f, 0.36f, 0.46f), OutlineSize = 0,
+                    Font = Ui.MonoBold, FontSize = 34, PixelSize = pixel, Modulate = new Color(0.10f, 0.13f, 0.20f), OutlineSize = 0,
                     RotationDegrees = new Vector3(-90, 0, 0), DoubleSided = false,
                     Position = World(nameAt - inward * _layout.CornerSize * 0.25f + new Vector2(0, horizontal ? 0 : _layout.TileWidth * 0.3f), TileHeight + 0.012f),
                 };

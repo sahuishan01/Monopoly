@@ -470,7 +470,7 @@ public partial class Board2DView : Control, IGameView
             };
         }
 
-        int nameSize = (int)Mathf.Clamp(w * (corner ? 0.2f : 0.165f), 6, 22);
+        int nameSize = (int)Mathf.Clamp(w * (corner ? 0.22f : 0.18f), 10, 24);
         var ink = def.Type is TileType.Street or TileType.Transit or TileType.Utility ? Tokens.Text : Tokens.Muted;
         string caption = def.Type switch
         {
