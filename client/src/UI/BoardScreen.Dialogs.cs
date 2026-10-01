@@ -511,19 +511,20 @@ public partial class BoardScreen
         if (s == null || seat < 0) return;
         var others = s.Players.Where(p => !p.Bankrupt && p.Id != seat).ToList();
         if (others.Count == 0) return;
-        if (partner < 0) partner = others[0].Id;
+        if (partner < 0 || partner == seat || partner >= s.Players.Count || s.Players[partner].Bankrupt)
+            partner = others[0].Id;
 
         var give = answering?.Receive.Clone() ?? new TradeSide();
         var receive = answering?.Give.Clone() ?? new TradeSide();
         Modal? modal = null;
         var body = Ui.VBox(10);
-        var error = Ui.Wrapped("", 13, Tokens.Bad);
+        Label? error = null;
         Button? propose = null;
 
         void Validate()
         {
             string? problem = TradeRules.Validate(D!, seat, partner, give, receive);
-            error.Text = problem ?? "";
+            if (error != null) error.Text = problem ?? "";
             if (propose != null) propose.Disabled = problem != null;
         }
 
@@ -531,13 +532,53 @@ public partial class BoardScreen
         {
             var box = Ui.VBox(8, Ui.Caption(caption, color));
             var player = s.Players[owner];
-            var money = new SpinBox { MinValue = 0, MaxValue = player.Money, Step = 10, Value = side.Money, Prefix = Currency };
+            var money = new SpinBox
+            {
+                MinValue = 0,
+                MaxValue = player.Money,
+                Step = 10,
+                Value = side.Money,
+                Prefix = Currency + " ",
+                UpdateOnTextChanged = true,
+                CustomMinimumSize = new Vector2(Ui.Px(100), Ui.Px(42)),
+            };
             money.ValueChanged += v =>
             {
                 side.Money = (int)v;
                 Validate();
             };
-            box.AddChild(money);
+            var le = money.GetLineEdit();
+            le.TextChanged += text =>
+            {
+                string digits = new string(text.Where(char.IsDigit).ToArray());
+                if (int.TryParse(digits, out int amt))
+                {
+                    side.Money = Math.Clamp(amt, 0, player.Money);
+                    Validate();
+                }
+                else if (string.IsNullOrWhiteSpace(text))
+                {
+                    side.Money = 0;
+                    Validate();
+                }
+            };
+
+            void QuickAdd(int delta)
+            {
+                int next = delta < 0 ? 0 : Math.Clamp(side.Money + delta, 0, player.Money);
+                side.Money = next;
+                money.Value = next;
+                Validate();
+            }
+
+            var moneyRow = Ui.HBox(4,
+                money.Expand(),
+                Ui.Button("+10", () => QuickAdd(10), ButtonKind.Secondary, 36),
+                Ui.Button("+50", () => QuickAdd(50), ButtonKind.Secondary, 36),
+                Ui.Button("+100", () => QuickAdd(100), ButtonKind.Secondary, 40),
+                Ui.Button("0", () => QuickAdd(-1), ButtonKind.Ghost, 32));
+            box.AddChild(moneyRow);
+
             var list = Ui.VBox(2);
             foreach (var prop in s.OwnedBy(owner).OrderBy(p => p.Tile))
             {
@@ -569,7 +610,11 @@ public partial class BoardScreen
                 var terms = Ui.VBox(2);
                 void RedrawTerms()
                 {
-                    foreach (var child in terms.GetChildren()) child.QueueFree();
+                    foreach (var child in terms.GetChildren())
+                    {
+                        terms.RemoveChild(child);
+                        child.QueueFree();
+                    }
                     var preview = new TradeSide { Shares = side.Shares, Terms = side.Terms };
                     if (side.Shares.Count + side.Terms.Count > 0) terms.AddChild(Ui.Wrapped(DescribeSide(s, preview), 13, Tokens.Info));
                 }
@@ -626,7 +671,11 @@ public partial class BoardScreen
 
         void Rebuild()
         {
-            foreach (var child in body.GetChildren()) child.QueueFree();
+            foreach (var child in body.GetChildren())
+            {
+                body.RemoveChild(child);
+                child.QueueFree();
+            }
             var header = Ui.HBox(10, Ui.Caption(answering != null ? "Counter-offer" : "Propose a trade", Tokens.Accent), Ui.Spacer());
             if (answering == null)
             {
@@ -646,6 +695,7 @@ public partial class BoardScreen
             body.AddChild(Ui.HBox(12,
                 SideEditor($"{s.Players[seat].Name} gives", Tokens.Bad, seat, give),
                 SideEditor($"{s.Players[partner].Name} gives", Tokens.Good, partner, receive)));
+            error = Ui.Wrapped("", 13, Tokens.Bad);
             body.AddChild(error);
             propose = Ui.Button(answering != null ? "Send counter-offer" : "Propose", () =>
             {
