@@ -1,8 +1,22 @@
-# Example reverse-proxy block for the BoardEmpire server (Cloudflare origin certificate assumed).
+# BoardEmpire site: static Blazor WASM client + proxied API/WebSocket (Cloudflare origin cert assumed).
+# Requires host bind mount /home/opc/web:/srv/web:ro,Z on the caddy service.
 # The game authenticates with its own bearer tokens, so no basic auth is applied here; if you
 # add it for the REST API, keep /ws/* outside of it or WebSocket handshakes will fail.
 monopoly.algosculptor.com {
-    tls /certs/origin.pem /certs/origin.key
-    encode zstd gzip
-    reverse_proxy 127.0.0.1:8091
+	tls /certs/origin.pem /certs/origin.key
+
+	# BoardEmpire: API/WebSocket proxied to the match server (own bearer tokens, no basic auth);
+	# everything else is the Blazor WASM static client (SPA fallback to index.html).
+	@api path /api/* /ws/* /healthz
+	handle @api {
+		reverse_proxy 127.0.0.1:8091
+	}
+
+	handle {
+		root * /srv/web/boardempire
+		try_files {path} /index.html
+		file_server {
+			precompressed br gzip
+		}
+	}
 }
