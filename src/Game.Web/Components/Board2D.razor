@@ -1,0 +1,32 @@
+@{
+    int side = Board.Tiles.Count / 4;
+    int dim = side + 1;
+}
+<div class="board2d" style="--dim:@dim">
+  @for (int i = 0; i < Board.Tiles.Count; i++)
+  {
+    int tile = i;
+    var def = Board.Tiles[tile];
+    var (row, col) = TileGrid.Cell(tile, side);
+    var prop = State.Property(tile);
+    var here = State.Players.Where(p => !p.Bankrupt && p.Position == tile).ToList();
+    <button class="tile @(prop?.Mortgaged == true ? "mortgaged" : "")"
+            style="grid-row:@(row + 1);grid-column:@(col + 1)"
+            @onclick="() => OnTileClick.InvokeAsync(tile)" aria-label="@def.Name">
+      <span class="name">@def.Name</span>
+      @if (prop != null && prop.Owner >= 0) { <span class="owner o@(prop.Owner % 8)">P@(prop.Owner + 1)</span> }
+      @if (prop != null && prop.Level > 0) { <span class="level">@(prop.Level == 5 ? "★" : new string('▪', prop.Level))</span> }
+      <span class="tokens">@foreach (var p in here) { <i class="tok o@(p.Id % 8)">@(p.Id + 1)</i> }</span>
+    </button>
+  }
+  <div class="center" style="grid-row:2 / span @(dim - 2);grid-column:2 / span @(dim - 2)">
+    <div class="dice">@State.Die1 · @State.Die2</div>
+    <div class="round">Round @State.Round</div>
+  </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public GameState State { get; set; } = null!;
+    [Parameter, EditorRequired] public BoardDefinition Board { get; set; } = null!;
+    [Parameter] public EventCallback<int> OnTileClick { get; set; }
+}

@@ -1,0 +1,54 @@
+@page "/play/{Code}"
+@implements IDisposable
+@inject Session Session
+@inject NavigationManager Nav
+
+<main class="play">
+  @if (game?.Display != null && game.Board != null)
+  {
+    <div class="stage">
+      <Board2D State="game.Display" Board="game.Board" OnTileClick="OnTile" />
+    </div>
+    <Hud Game="game" />
+  }
+  else if (game?.UpdateRequired != null) { <p class="error" role="alert">This version is out of date. Please refresh.</p> }
+  else if (error != null) { <p class="error" role="alert">@error</p> }
+  else { <p>Loading match…</p> }
+</main>
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+    private GameSession? game;
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Session.Auth == null) { Nav.NavigateTo("/"); return; }
+        Detach();
+        try
+        {
+            game = await GameLoop.OpenAsync(Session, Nav, Code);
+            error = null;
+        }
+        catch (Exception e) when (e is HttpRequestException or System.Net.WebSockets.WebSocketException or InvalidOperationException or JSException)
+        {
+            if (Session.Game?.UpdateRequired != null) { game = Session.Game; error = null; }
+            else { error = "Could not join this match."; return; }
+        }
+        game.Changed += OnChanged;
+        game.Client.ReturnedToLobby += BackToLobby;
+    }
+
+    private void Detach()
+    {
+        if (game == null) return;
+        game.Changed -= OnChanged;
+        game.Client.ReturnedToLobby -= BackToLobby;
+    }
+
+    private void BackToLobby() => InvokeAsync(() => Nav.NavigateTo("/room/" + Code));
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+    private Task OnTile(int tile) => Task.CompletedTask;
+
+    public void Dispose() => Detach();
+}

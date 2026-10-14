@@ -1,0 +1,99 @@
+@implements IDisposable
+@{
+    var s = Game.Display!;
+    // Limitation: only the first seat is used (no hot-seat multi-seat control); spectators have no seat.
+    int me = Game.Client.Seats.Length > 0 ? Game.Client.Seats[0] : -1;
+    bool myTurn = me >= 0 && s.CurrentPlayer == me;
+    string cur = s.Players[s.CurrentPlayer].Name;
+}
+<aside class="hud">
+  <h2>@(myTurn ? "Your turn" : cur + "'s turn")</h2>
+  <ul class="players">
+    @foreach (var p in s.Players)
+    {
+      <li class="@(p.Id == s.CurrentPlayer ? "cur" : "") @(p.Bankrupt ? "out" : "")">
+        <span>@p.Name @(p.IsBot ? "🤖" : "")</span><b>@Board.Currency@p.Money</b>
+      </li>
+    }
+  </ul>
+  @if (myTurn)
+  {
+    <div class="actions">
+      @switch (s.Phase)
+      {
+        case TurnPhase.PreRoll:
+          <button @onclick="() => Send(new RollDiceCommand(me))">Roll dice</button>
+          @if (s.Players[me].InJail)
+          {
+            <button @onclick="() => Send(new PayJailFineCommand(me))">Pay fine</button>
+            @if (s.Players[me].JailCards > 0) { <button @onclick="() => Send(new UseJailCardCommand(me))">Use card</button> }
+          }
+          break;
+        case TurnPhase.BuyDecision:
+          <button @onclick="() => Send(new BuyPropertyCommand(me))">Buy</button>
+          <button class="ghost" @onclick="() => Send(new DeclinePropertyCommand(me))">Pass</button>
+          break;
+        case TurnPhase.PostRoll:
+          <button @onclick="() => Send(new EndTurnCommand(me))">End turn</button>
+          break;
+      }
+    </div>
+  }
+  @if (s.Phase == TurnPhase.Auction && s.Auction != null && me >= 0)
+  {
+    <div class="actions">
+      <input type="number" @bind="bid" min="1" />
+      <button @onclick="() => Send(new PlaceBidCommand(me, bid))">Bid</button>
+      <button class="ghost" @onclick="() => Send(new PassAuctionCommand(me))">Pass</button>
+    </div>
+  }
+  @if (message != null) { <p class="error">@message</p> }
+  @if (s.IsOver)
+  {
+    <p class="winner">Game over</p>
+    <button @onclick="() => Game.Client.Send(new RequestRematch())">Rematch</button>
+  }
+  <div class="actions chat">
+    @for (int preset = 0; preset < ChatShown; preset++)
+    {
+      int id = preset;
+      <button class="ghost" @onclick="() => Game.Client.Chat(id)">@ChatPresets.Lines[id]</button>
+    }
+  </div>
+</aside>
+
+@code {
+    [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
+    private BoardDefinition Board => Game.Board!;
+    private int bid = 10;
+    private string? message;
+    // First 6 of ChatPresets.Lines are shown; the full list has 14.
+    private const int ChatShown = 6;
+    private GameSession? subscribed;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(subscribed, Game)) return;
+        if (subscribed != null) subscribed.Client.CommandFailed -= OnFailed;
+        subscribed = Game;
+        Game.Client.CommandFailed -= OnFailed;
+        Game.Client.CommandFailed += OnFailed;
+    }
+
+    private void OnFailed(string id, string reason)
+    {
+        message = reason;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Send(GameCommand command)
+    {
+        message = null;
+        Game.Client.SendCommand(command);
+    }
+
+    public void Dispose()
+    {
+        if (subscribed != null) subscribed.Client.CommandFailed -= OnFailed;
+    }
+}
