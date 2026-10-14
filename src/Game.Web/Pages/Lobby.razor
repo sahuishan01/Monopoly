@@ -7,7 +7,7 @@
   @if (game == null) { <p>Connecting…</p> }
   else if (game.UpdateRequired != null)
   {
-    <p class="error" role="alert">This version is out of date. <a href="javascript:location.reload()">Refresh</a> to update.</p>
+    <p class="error" role="alert">This version is out of date. <button @onclick="Reload">Refresh</button> to update.</p>
   }
   else if (game.Client.Lobby is { } lobby)
   {
@@ -44,6 +44,9 @@
     [Parameter] public string Code { get; set; } = "";
     private GameSession? game;
     private string? error;
+    private bool navigated;
+
+    private void Reload() => Nav.NavigateTo(Nav.Uri, forceLoad: true);
 
     protected override async Task OnParametersSetAsync()
     {
@@ -56,9 +59,10 @@
             game.Changed += OnChanged;
             error = null;
         }
-        catch (Exception e) when (e is HttpRequestException or System.Net.WebSockets.WebSocketException or InvalidOperationException)
+        catch (Exception e) when (e is HttpRequestException or System.Net.WebSockets.WebSocketException or InvalidOperationException or JSException)
         {
-            error = "Could not join this room.";
+            if (Session.Game?.UpdateRequired != null) { game = Session.Game; error = null; }
+            else error = "Could not join this room.";
         }
     }
 
@@ -66,7 +70,9 @@
     {
         if (game?.Client.Status == ClientStatus.InMatch && game.Display != null)
         {
-            Nav.NavigateTo("/play/" + Code);
+            if (navigated) return;
+            navigated = true;
+            InvokeAsync(() => Nav.NavigateTo("/play/" + Code));
             return;
         }
         InvokeAsync(StateHasChanged);

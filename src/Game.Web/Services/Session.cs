@@ -11,6 +11,22 @@ public sealed class Session
     public AuthResult? Auth { get; private set; }
     public string PlayerName { get; set; } = "";
     public GameSession? Game { get; set; }
+    public string? GameCode { get; set; }
+    public CancellationTokenSource? LoopCts { get; set; }
+
+    /// <summary>Stops the tick loop and disconnects the active game, if any.</summary>
+    public async Task CloseGameAsync()
+    {
+        var game = Game;
+        LoopCts?.Cancel();
+        LoopCts = null;
+        GameCode = null;
+        Game = null;
+        if (game != null)
+        {
+            try { await game.DisconnectAsync(); } catch (Exception) { }
+        }
+    }
 
     public Session(ApiClient api, IJSRuntime js)
     {
