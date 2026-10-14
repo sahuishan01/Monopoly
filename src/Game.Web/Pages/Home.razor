@@ -1,0 +1,94 @@
+@page "/"
+@inject Session Session
+@inject NavigationManager Nav
+
+<main class="home">
+  <h1>BoardEmpire</h1>
+  @if (error != null) { <p class="error" role="alert">@error</p> }
+
+  <section class="card">
+    <label>Your name <input @bind="name" maxlength="20" placeholder="Guest" /></label>
+    <div class="row">
+      <button disabled="@busy" @onclick="Quick">Quick match</button>
+      <button disabled="@busy" @onclick="Create">Create room</button>
+    </div>
+    <div class="row">
+      <input @bind="joinCode" maxlength="8" placeholder="Room code" />
+      <button disabled="@busy" @onclick="Join">Join</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Open rooms</h2>
+    <button @onclick="Refresh">Refresh</button>
+    @if (rooms.Count == 0) { <p>No open rooms. Create one!</p> }
+    <ul>
+      @foreach (var r in rooms)
+      {
+        <li><span>@r.Name — @r.Players/@r.MaxPlayers — @r.Preset</span>
+            <button @onclick="() => GoTo(r.Code)">Join</button></li>
+      }
+    </ul>
+  </section>
+</main>
+
+@code {
+    private string name = "";
+    private string joinCode = "";
+    private string? error;
+    private bool busy;
+    private IReadOnlyList<RoomSummary> rooms = Array.Empty<RoomSummary>();
+
+    protected override Task OnInitializedAsync() => Refresh();
+
+    private async Task Refresh()
+    {
+        try { rooms = await Session.Api.RoomsAsync(); }
+        catch (ApiException e) { error = e.Message; }
+        catch (HttpRequestException) { error = "Can't reach the server."; }
+    }
+
+    private async Task Run(Func<Task> action)
+    {
+        busy = true;
+        error = null;
+        try { await action(); }
+        catch (ApiException e) { error = e.Message; }
+        catch (HttpRequestException) { error = "Can't reach the server."; }
+        finally { busy = false; }
+    }
+
+    private Task Quick() => Run(async () =>
+    {
+        await Session.EnsureGuestAsync(Clean());
+        string code = await Session.Api.QuickMatchAsync("quick");
+        Nav.NavigateTo("/room/" + code);
+    });
+
+    private Task Create() => Run(async () =>
+    {
+        var auth = await Session.EnsureGuestAsync(Clean());
+        string code = await Session.Api.CreateRoomAsync(auth.DisplayName + "'s game", "classic", "", 6, true);
+        Nav.NavigateTo("/room/" + code);
+    });
+
+    private Task Join() => Run(async () =>
+    {
+        string code = joinCode.Trim().ToUpperInvariant();
+        if (code.Length == 0) { error = "Enter a room code."; return; }
+        if (!await Session.Api.RoomExistsAsync(code)) { error = "Room not found."; return; }
+        await Session.EnsureGuestAsync(Clean());
+        Nav.NavigateTo("/room/" + code);
+    });
+
+    private async Task GoTo(string code)
+    {
+        await Run(async () =>
+        {
+            await Session.EnsureGuestAsync(Clean());
+            Nav.NavigateTo("/room/" + code);
+        });
+    }
+
+    private string Clean() => string.IsNullOrWhiteSpace(name) ? "Guest" : name.Trim();
+}
