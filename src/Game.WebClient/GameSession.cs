@@ -67,5 +67,5 @@ public sealed class GameSession : IDisposable
         }
     }
 
-    public void Dispose() => _ = Client.DisconnectAsync();
+    public void Dispose() => _ = Client.DisconnectAsync().ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
 }

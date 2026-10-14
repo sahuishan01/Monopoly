@@ -9,6 +9,7 @@ public static class BrowserSocket
     public static WebSocketClientTransport Create(Uri uri) =>
         new(async cancel =>
         {
+            // No ClientWebSocketOptions here: the browser WebSocket throws PlatformNotSupported for KeepAlive, headers, etc.
             var socket = new ClientWebSocket();
             await socket.ConnectAsync(uri, cancel);
             return socket;
