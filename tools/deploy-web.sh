@@ -2,9 +2,14 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-/home/opc/web/boardempire}"
-if [[ -z "$OUT" || "$OUT" == "/" || "$OUT" != /home/opc/web/* || "$OUT" == *..* ]]; then
-  echo "refusing: OUT must be under /home/opc/web/ (got '$OUT')" >&2
-  exit 1
+BASE=/home/opc/web
+OUT="$(printf '%s' "$OUT" | sed -E 's#/+#/#g; s#/+$##')"
+if [[ -z "$OUT" || "$OUT" == *..* ]]; then
+  echo "refusing: invalid OUT '$OUT'" >&2; exit 1
+fi
+OUT="$(realpath -m -- "$OUT")"
+if [[ ! "$OUT" =~ ^/home/opc/web/[^/]+(/[^/]+)*$ ]]; then
+  echo "refusing: OUT must be a real subdirectory of $BASE (got '$OUT')" >&2; exit 1
 fi
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
