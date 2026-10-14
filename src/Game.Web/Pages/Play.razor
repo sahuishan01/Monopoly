@@ -25,6 +25,8 @@
     {
         if (Session.Auth == null) { Nav.NavigateTo("/"); return; }
         Detach();
+        game = null;
+        error = null;
         try
         {
             game = await GameLoop.OpenAsync(Session, Nav, Code);

@@ -39,11 +39,12 @@
       }
     </div>
   }
-  @if (s.Phase == TurnPhase.Auction && s.Auction != null && me >= 0)
+  @if (s.Phase == TurnPhase.Auction && s.Auction is { } auc && me >= 0 && !s.Players[me].Bankrupt
+       && auc.Participants.Contains(me) && !auc.Passed.Contains(me))
   {
     <div class="actions">
-      <input type="number" @bind="bid" min="1" />
-      <button @onclick="() => Send(new PlaceBidCommand(me, bid))">Bid</button>
+      <input type="number" @bind="bid" @bind:event="oninput" min="1" @onkeydown="OnBidKey" />
+      <button @onclick="PlaceBid">Bid</button>
       <button class="ghost" @onclick="() => Send(new PassAuctionCommand(me))">Pass</button>
     </div>
   }
@@ -51,8 +52,12 @@
   @if (s.IsOver)
   {
     <p class="winner">Game over</p>
+    @if (me >= 0) {
     <button @onclick="() => Game.Client.Send(new RequestRematch())">Rematch</button>
+    }
   }
+  @if (me >= 0)
+  {
   <div class="actions chat">
     @for (int preset = 0; preset < ChatShown; preset++)
     {
@@ -60,6 +65,7 @@
       <button class="ghost" @onclick="() => Game.Client.Chat(id)">@ChatPresets.Lines[id]</button>
     }
   </div>
+  }
 </aside>
 
 @code {
@@ -70,9 +76,13 @@
     // First 6 of ChatPresets.Lines are shown; the full list has 14.
     private const int ChatShown = 6;
     private GameSession? subscribed;
+    private int lastHigh = -1;
 
     protected override void OnParametersSet()
     {
+        var auc = Game.Display?.Auction;
+        if (auc != null && auc.HighBid != lastHigh) { lastHigh = auc.HighBid; bid = Math.Max(1, auc.HighBid + 1); }
+        else if (auc == null) lastHigh = -1;
         if (ReferenceEquals(subscribed, Game)) return;
         if (subscribed != null) subscribed.Client.CommandFailed -= OnFailed;
         subscribed = Game;
@@ -84,6 +94,19 @@
     {
         message = reason;
         InvokeAsync(StateHasChanged);
+    }
+
+    private void OnBidKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") PlaceBid();
+    }
+
+    private void PlaceBid()
+    {
+        int me = Game.Client.Seats.Length > 0 ? Game.Client.Seats[0] : -1;
+        if (me < 0) return;
+        if (bid < 1) bid = 1;
+        Send(new PlaceBidCommand(me, bid));
     }
 
     private void Send(GameCommand command)
