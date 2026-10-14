@@ -11,3 +11,5 @@ button:disabled { opacity: .5; cursor: default; }
 .error { color: var(--bad); }
 ul { list-style: none; padding: 0; }
 li { display: flex; justify-content: space-between; align-items: center; padding: .4rem 0; border-top: 1px solid var(--line); }
+.lobby { max-width: 640px; margin: 0 auto; padding: 1.5rem 16px; }
+.lobby small { color: var(--muted); font-weight: 400; }

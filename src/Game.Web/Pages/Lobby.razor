@@ -1,0 +1,79 @@
+@page "/room/{Code}"
+@implements IDisposable
+@inject Session Session
+@inject NavigationManager Nav
+
+<main class="lobby">
+  @if (game == null) { <p>Connecting…</p> }
+  else if (game.UpdateRequired != null)
+  {
+    <p class="error" role="alert">This version is out of date. <a href="javascript:location.reload()">Refresh</a> to update.</p>
+  }
+  else if (game.Client.Lobby is { } lobby)
+  {
+    <h1>@lobby.RoomName <small>#@lobby.RoomCode</small></h1>
+    <section class="card">
+      <h2>Players</h2>
+      <ul>
+        @foreach (var seat in lobby.Seats)
+        {
+          <li>
+            <span>@seat.Name @(seat.IsBot ? "(bot)" : "") @(seat.Ready ? "✓" : "")</span>
+            @if (game.Client.IsHost && seat.PeerId != game.Client.PeerId)
+            {
+              <button @onclick="() => game.Client.Kick(seat.Seat)">Remove</button>
+            }
+          </li>
+        }
+      </ul>
+      <div class="row">
+        <button @onclick="() => game.Client.SetReady(true)">Ready</button>
+        @if (game.Client.IsHost)
+        {
+          <button @onclick="() => game.Client.AddBot(BotLevel.Medium)">Add bot</button>
+          <button @onclick="() => game.Client.StartMatch()">Start match</button>
+        }
+      </div>
+    </section>
+  }
+  else { <p>Joining room…</p> }
+  @if (error != null) { <p class="error" role="alert">@error</p> }
+</main>
+
+@code {
+    [Parameter] public string Code { get; set; } = "";
+    private GameSession? game;
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Session.Auth == null) { Nav.NavigateTo("/"); return; }
+        try
+        {
+            if (game != null) game.Changed -= OnChanged;
+            game = await GameLoop.OpenAsync(Session, Nav, Code);
+            game.Changed -= OnChanged;
+            game.Changed += OnChanged;
+            error = null;
+        }
+        catch (Exception e) when (e is HttpRequestException or System.Net.WebSockets.WebSocketException or InvalidOperationException)
+        {
+            error = "Could not join this room.";
+        }
+    }
+
+    private void OnChanged()
+    {
+        if (game?.Client.Status == ClientStatus.InMatch && game.Display != null)
+        {
+            Nav.NavigateTo("/play/" + Code);
+            return;
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        if (game != null) game.Changed -= OnChanged;
+    }
+}
