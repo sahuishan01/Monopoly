@@ -1,0 +1,62 @@
+@{
+    var s = Game.Display!;
+    int me = Game.Client.Seats.Length > 0 ? Game.Client.Seats[0] : -1;
+}
+@if (me >= 0)
+{
+<div class="panel card">
+  <h3>Trades</h3>
+  @foreach (var t in s.Trades.Where(t => t.To == me))
+  {
+    <div class="row">
+      <span>@s.Players[t.From].Name offers @Describe(t.Give) for @Describe(t.Receive)</span>
+      <button @onclick="() => Game.Client.SendCommand(new AcceptTradeCommand(me, t.Id))">Accept</button>
+      <button class="ghost" @onclick="() => Game.Client.SendCommand(new RejectTradeCommand(me, t.Id))">Reject</button>
+    </div>
+  }
+  <div class="row">
+    <select @bind="partner">
+      @foreach (var p in s.Players.Where(p => p.Id != me && !p.Bankrupt)) { <option value="@p.Id">@p.Name</option> }
+    </select>
+    <input type="number" @bind="give" min="0" placeholder="You give" />
+    <input type="number" @bind="receive" min="0" placeholder="You receive" />
+    <button @onclick="Offer">Offer</button>
+  </div>
+</div>
+}
+
+@code {
+    [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
+    /// <summary>Optional initial trade partner seat; -1 picks the first other player.</summary>
+    [Parameter] public int Partner { get; set; } = -1;
+    private int partner = -1;
+    private int give;
+    private int receive;
+
+    protected override void OnInitialized() => partner = Partner;
+
+    private string Describe(TradeSide side)
+    {
+        var parts = new List<string>();
+        if (side.Money > 0) parts.Add(Game.Board!.Currency + side.Money);
+        var board = Game.Board;
+        foreach (var tile in side.Tiles)
+            parts.Add(board != null && tile >= 0 && tile < board.Tiles.Count ? board.Tiles[tile].Name : "tile " + tile);
+        if (side.JailCards > 0) parts.Add(side.JailCards + " jail card(s)");
+        if (side.Shares.Count > 0 || side.Terms.Count > 0) parts.Add("other terms");
+        return parts.Count == 0 ? "nothing" : string.Join(", ", parts);
+    }
+
+    private void Offer()
+    {
+        int me = Game.Client.Seats.Length > 0 ? Game.Client.Seats[0] : -1;
+        var s = Game.Display;
+        if (me < 0 || s == null) return;
+        int to = partner;
+        if (!s.Players.Any(p => p.Id == to && p.Id != me && !p.Bankrupt))
+            to = s.Players.FirstOrDefault(p => p.Id != me && !p.Bankrupt)?.Id ?? -1;
+        if (to < 0) return;
+        Game.Client.SendCommand(new CreateTradeCommand(me, to,
+            new TradeSide { Money = Math.Max(0, give) }, new TradeSide { Money = Math.Max(0, receive) }));
+    }
+}

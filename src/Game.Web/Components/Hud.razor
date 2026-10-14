@@ -4,6 +4,8 @@
     // Limitation: only the first seat is used (no hot-seat multi-seat control); spectators have no seat.
     int me = Game.Client.Seats.Length > 0 ? Game.Client.Seats[0] : -1;
     bool myTurn = me >= 0 && s.CurrentPlayer == me;
+    var debt = s.Phase == TurnPhase.DebtResolution && s.Debts.Count > 0 ? s.Debts[0] : null;
+    bool iAmDebtor = me >= 0 && debt != null && debt.Debtor == me;
     string cur = s.Players[s.CurrentPlayer].Name;
 }
 <aside class="hud">
@@ -38,6 +40,17 @@
           break;
       }
     </div>
+  }
+  @if (debt != null)
+  {
+    <p class="error">@s.Players[debt.Debtor].Name owes @Board.Currency@debt.Amount@(debt.Creditor >= 0 ? " to " + s.Players[debt.Creditor].Name : " to the bank")</p>
+    @if (iAmDebtor)
+    {
+      <p>Select your properties to mortgage or sell; the debt settles automatically once you have enough cash.</p>
+      <div class="actions">
+        <button class="ghost" @onclick="() => Send(new DeclareBankruptcyCommand(me))">Declare bankruptcy</button>
+      </div>
+    }
   }
   @if (s.Phase == TurnPhase.Auction && s.Auction is { } auc && me >= 0 && !s.Players[me].Bankrupt
        && auc.Participants.Contains(me) && !auc.Passed.Contains(me))

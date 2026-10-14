@@ -10,6 +10,11 @@
       <Board2D State="game.Display" Board="game.Board" OnTileClick="OnTile" />
     </div>
     <Hud Game="game" />
+    @if (selected is int sel)
+    {
+      <PropertyPanel Game="game" Tile="sel" />
+    }
+    <TradeDialog Game="game" />
   }
   else if (game?.UpdateRequired != null) { <p class="error" role="alert">This version is out of date. Please refresh.</p> }
   else if (error != null) { <p class="error" role="alert">@error</p> }
@@ -50,7 +55,8 @@
 
     private void BackToLobby() => InvokeAsync(() => Nav.NavigateTo("/room/" + Code));
     private void OnChanged() => InvokeAsync(StateHasChanged);
-    private Task OnTile(int tile) => Task.CompletedTask;
+    private int? selected;
+    private Task OnTile(int tile) { selected = tile; return Task.CompletedTask; }
 
     public void Dispose() => Detach();
 }
