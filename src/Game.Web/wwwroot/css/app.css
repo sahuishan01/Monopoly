@@ -30,3 +30,4 @@ li { display: flex; justify-content: space-between; align-items: center; padding
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
 .o0{background:#f87171}.o1{background:#60a5fa}.o2{background:#fbbf24}.o3{background:#a78bfa}.o4{background:#f472b6}.o5{background:#2dd4bf}.o6{background:#fb923c}.o7{background:#a3e635}
+.board3d { width: 100%; aspect-ratio: 1; border-radius: 12px; background: #0b0d12; }

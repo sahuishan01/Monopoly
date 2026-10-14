@@ -2,12 +2,15 @@
 @implements IDisposable
 @inject Session Session
 @inject NavigationManager Nav
+@inject IJSRuntime Js
 
 <main class="play">
   @if (game?.Display != null && game.Board != null)
   {
     <div class="stage">
-      <Board2D State="game.Display" Board="game.Board" OnTileClick="OnTile" />
+      <button class="ghost" @onclick="ToggleView">@(use3d ? "2D" : "3D")</button>
+      @if (use3d) { <Board3D Game="game" OnUnavailable="Fallback" /> }
+      else { <Board2D State="game.Display" Board="game.Board" OnTileClick="OnTile" /> }
     </div>
     <Hud Game="game" />
     @if (selected is int sel)
@@ -56,6 +59,25 @@
     private void BackToLobby() => InvokeAsync(() => Nav.NavigateTo("/room/" + Code));
     private void OnChanged() => InvokeAsync(StateHasChanged);
     private int? selected;
+    private bool use3d;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            if (await Js.InvokeAsync<string?>("localStorage.getItem", "view3d") == "1") { use3d = true; StateHasChanged(); }
+        }
+        catch { }
+    }
+
+    private async Task ToggleView()
+    {
+        use3d = !use3d;
+        try { await Js.InvokeVoidAsync("localStorage.setItem", "view3d", use3d ? "1" : "0"); } catch { }
+    }
+
+    private Task Fallback() { use3d = false; return InvokeAsync(StateHasChanged); }
     private Task OnTile(int tile) { selected = tile; return Task.CompletedTask; }
 
     public void Dispose() => Detach();

@@ -1,0 +1,76 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+<canvas @ref="canvas" class="board3d"></canvas>
+
+@code {
+    [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
+    [Parameter] public EventCallback OnUnavailable { get; set; }
+    private ElementReference canvas;
+    private IJSObjectReference? module;
+    private bool ready;
+    private bool disposed;
+    private GameState? applied;   // Display object last pushed to JS; a replaced snapshot object triggers a re-apply via Changed
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/board3d.js");
+            if (disposed) return;
+            ready = Game.Board != null && await module.InvokeAsync<bool>("init", canvas, DisplayPayload.Board(Game.Board));
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException) { ready = false; }
+        if (disposed) return;
+        if (!ready)
+        {
+            await OnUnavailable.InvokeAsync();
+            return;
+        }
+        await Push(Game.Display);
+        Game.EventPlayed += OnEvent;
+        Game.Changed += OnChanged;
+    }
+
+    private async Task Push(GameState? s)
+    {
+        if (!ready || module == null || s == null) return;
+        applied = s;
+        await module.InvokeVoidAsync("applyState", DisplayPayload.State(s));
+    }
+
+    private async void OnEvent(GameEvent e, GameState after)
+    {
+        try
+        {
+            if (!ready || module == null || disposed) return;
+            await module.InvokeVoidAsync("playEvent", DisplayPayload.Event(e));
+            await Push(after);
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) { }
+    }
+
+    // Snapshots replace the Display object without raising EventPlayed; re-apply when the reference changed.
+    private async void OnChanged()
+    {
+        try
+        {
+            if (disposed || Game.Display == null || ReferenceEquals(Game.Display, applied)) return;
+            await Push(Game.Display);
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        disposed = true;
+        Game.EventPlayed -= OnEvent;
+        Game.Changed -= OnChanged;
+        if (module != null)
+        {
+            try { await module.InvokeVoidAsync("dispose"); await module.DisposeAsync(); }
+            catch (Exception e) when (e is JSDisconnectedException or JSException) { }
+        }
+    }
+}
