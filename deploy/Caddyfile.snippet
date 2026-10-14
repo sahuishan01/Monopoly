@@ -15,6 +15,7 @@ monopoly.algosculptor.com {
 	handle {
 		root * /srv/web/boardempire
 		try_files {path} /index.html
+		header Cache-Control "no-cache"
 		file_server {
 			precompressed br gzip
 		}
