@@ -93,37 +93,57 @@ class Fx {
 
   tileEl(i) { return this.grid?.querySelector(`[data-tile="${i}"]`); }
 
-  // points: [[x%, y%], ...] from the start tile through each hop to the final slot.
+  // points: [[x%, y%], ...] from the pawn's current spot through each hop to its final spot.
+  // Resolves when the walk ends or is cancelled. Blazor keeps the pawn drawn at its origin until then; on the
+  // way out the final spot is written inline in the same task the animation is cancelled, so no frame shows
+  // the pawn anywhere but on its path.
   hop(player, points, tile, hue, jump) {
-    const el = this.layer?.querySelector(`[data-pawn="${player}"]`);
-    if (!el || !this.canAnimate() || !Array.isArray(points) || points.length < 2) return;
-    for (const a of el.getAnimations()) a.cancel();
-    const body = el.querySelector('.pawn-body');
-    for (const a of body?.getAnimations() || []) a.cancel();
-    const hops = points.length - 1;
-    const per = jump ? 520 : hopMs(hops);
-    const dur = per * hops;
-    const pos = [], arcs = [];
-    points.forEach((p, i) => {
-      const off = hops ? i / hops : 1;
-      pos.push({ left: p[0] + '%', top: p[1] + '%', offset: off, easing: 'cubic-bezier(.45,.05,.55,.95)' });
-      if (i < hops) {
-        arcs.push({ transform: 'translateY(0) scale(1, 1)', offset: off, easing: 'cubic-bezier(.2,.6,.4,1)' });
-        arcs.push({ transform: `translateY(${jump ? -150 : -55}%) scale(.94, 1.08)`, offset: (i + .5) / hops, easing: 'cubic-bezier(.6,0,.8,.4)' });
-      }
+    return new Promise(resolve => {
+      const el = this.layer?.querySelector(`[data-pawn="${player}"]`);
+      if (!el || !this.canAnimate() || !Array.isArray(points) || points.length < 2) { resolve(false); return; }
+      for (const a of el.getAnimations()) a.cancel();
+      const body = el.querySelector('.pawn-body');
+      for (const a of body?.getAnimations() || []) a.cancel();
+      const hops = points.length - 1;
+      const per = jump ? 520 : hopMs(hops);
+      const dur = per * hops;
+      const pos = [], arcs = [];
+      points.forEach((p, i) => {
+        const off = i / hops;
+        pos.push({ left: p[0] + '%', top: p[1] + '%', offset: off, easing: 'cubic-bezier(.45,.05,.55,.95)' });
+        if (i < hops) {
+          arcs.push({ transform: 'translateY(0) scale(1, 1)', offset: off, easing: 'cubic-bezier(.2,.6,.4,1)' });
+          arcs.push({ transform: `translateY(${jump ? -150 : -55}%) scale(.94, 1.08)`, offset: (i + .5) / hops, easing: 'cubic-bezier(.6,0,.8,.4)' });
+        }
+      });
+      arcs.push({ transform: 'translateY(0) scale(1, 1)', offset: 1 });
+      const last = points[hops];
+      const a = this.track(el.animate(pos, { duration: dur, fill: 'forwards' }));
+      const b = body ? this.track(body.animate(arcs, { duration: dur, fill: 'none' })) : null;
+      let done = false;
+      const finish = ok => {
+        if (done) return;
+        done = true;
+        clearTimeout(guard);
+        if (!this.dead) {
+          el.style.transition = 'none';
+          el.style.left = last[0] + '%';
+          el.style.top = last[1] + '%';
+          try { a.cancel(); } catch { }
+          void el.offsetWidth;
+          el.style.transition = '';
+        }
+        if (ok && !this.dead && body) {
+          this.track(body.animate([
+            { transform: 'scale(1.18, .78)' }, { transform: 'scale(.94, 1.08)' }, { transform: 'scale(1, 1)' },
+          ], { duration: 260, easing: 'ease-out' }));
+          this.pulse(tile, hue);
+        }
+        resolve(ok);
+      };
+      const guard = setTimeout(() => { try { b?.cancel(); } catch { } finish(false); }, dur + 1500);
+      a.finished.then(() => finish(true), () => finish(false));
     });
-    arcs.push({ transform: 'translateY(0) scale(1, 1)', offset: 1 });
-    this.track(el.animate(pos, { duration: dur, fill: 'none' }));
-    if (body) {
-      const a = this.track(body.animate(arcs, { duration: dur, fill: 'none' }));
-      a.finished.then(() => {
-        if (this.dead) return;
-        this.track(body.animate([
-          { transform: 'scale(1.18, .78)' }, { transform: 'scale(.94, 1.08)' }, { transform: 'scale(1, 1)' },
-        ], { duration: 260, easing: 'ease-out' }));
-        this.pulse(tile, hue);
-      }, () => { });
-    }
   }
 
   pulse(tile, hue) {

@@ -29,25 +29,64 @@ public static class BoardLayout2D
         return (Axis(col, side) / s * 100, Axis(row, side) / s * 100);
     }
 
-    /// <summary>Offset (in % of the board) of the k-th of m pawns sharing a tile.</summary>
-    public static (double X, double Y) Slot(int k, int m, int side)
+    /// <summary>Unit vector from a tile toward the board centre: edges point straight in, corners diagonally.</summary>
+    public static (int X, int Y) Inward(int tile, int side)
     {
-        if (m <= 1) return (0, 0);
-        double r = (m <= 4 ? 0.2 : 0.27) / Span(side) * 100;
-        double a = -Math.PI / 2 + 2 * Math.PI * k / m + (m == 2 ? Math.PI / 4 : 0);
-        return (Math.Cos(a) * r, Math.Sin(a) * r);
+        var (row, col) = TileGrid.Cell(tile, side);
+        int x = col == 0 ? 1 : col == side ? -1 : 0;
+        int y = row == 0 ? 1 : row == side ? -1 : 0;
+        bool corner = x != 0 && y != 0;
+        if (!corner) { if (row == side || row == 0) x = 0; else y = 0; }
+        return (x, y);
     }
 
-    /// <summary>Displayed (x%, y%) of a player's pawn, matching the slot ordering used when rendering.</summary>
+    /// <summary>
+    /// Where the k-th of m pawns on a tile stands (x%, y%): pawns gather in a compact grid at the tile's inner
+    /// edge (toward the board centre, away from the price and name); corners use their inner corner.
+    /// </summary>
+    public static (double X, double Y) Spot(int tile, int k, int m, int side)
+    {
+        double u = 100 / Span(side);
+        var c = Centre(tile, side);
+        var (ix, iy) = Inward(tile, side);
+        m = Math.Max(1, m);
+        k = Math.Clamp(k, 0, m - 1);
+        if (ix != 0 && iy != 0)
+        {
+            // corner: 2-column grid around a point 0.45u from the inner corner
+            int cols = m == 1 ? 1 : 2, rows = (m + cols - 1) / cols;
+            int r = k / cols, cc = k % cols;
+            double gx = (cc - (cols - 1) / 2.0) * 0.34, gy = (r - (rows - 1) / 2.0) * 0.3;
+            double off = CornerSpan / 2 - 0.45;
+            return (c.X + (ix * off + gx) * u, c.Y + (iy * off + gy) * u);
+        }
+        int rowsN = (m + 2) / 3;
+        int row = k / 3, col = k % 3, inRow = row == rowsN - 1 ? m - row * 3 : 3;
+        double along = (col - (inRow - 1) / 2.0) * 0.3;
+        double depth = CornerSpan / 2 - 0.3 + row * 0.26;  // first row sits on the band, later rows step inward
+        // tangent is perpendicular to inward
+        double tx = iy != 0 ? 1 : 0, ty = ix != 0 ? 1 : 0;
+        return (c.X + (ix * depth + tx * along) * u, c.Y + (iy * depth + ty * along) * u);
+    }
+
+    /// <summary>Spots for every pawn given the tile each one is displayed on; pawns sharing a tile are ordered by id.</summary>
+    public static Dictionary<int, (double X, double Y)> Spots(IEnumerable<(int Id, int Tile)> pawns, int side)
+    {
+        var result = new Dictionary<int, (double X, double Y)>();
+        foreach (var g in pawns.GroupBy(p => p.Tile))
+        {
+            var ids = g.Select(p => p.Id).OrderBy(i => i).ToList();
+            for (int k = 0; k < ids.Count; k++) result[ids[k]] = Spot(g.Key, k, ids.Count, side);
+        }
+        return result;
+    }
+
+    /// <summary>Displayed (x%, y%) of a player's pawn when every pawn is shown at its state position.</summary>
     public static (double X, double Y) PawnAt(GameState s, int player, int side)
     {
         if (player < 0 || player >= s.Players.Count) return (50, 50);
-        var p = s.Players[player];
-        var mates = s.Players.Where(q => !q.Bankrupt && q.Position == p.Position).Select(q => q.Id).ToList();
-        int k = Math.Max(0, mates.IndexOf(p.Id));
-        var c = Centre(p.Position, side);
-        var o = Slot(k, mates.Count, side);
-        return (c.X + o.X, c.Y + o.Y);
+        var spots = Spots(s.Players.Where(q => !q.Bankrupt || q.Id == player).Select(q => (q.Id, q.Position)), side);
+        return spots[player];
     }
 
     /// <summary>Tiles a pawn passes through (excluding <paramref name="from"/>, ending at <paramref name="to"/>).

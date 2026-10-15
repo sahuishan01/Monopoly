@@ -2,6 +2,7 @@
 .b2d {
   --pad: clamp(5px, 1.6%, 14px);
   position: relative; width: min(100%, calc(100vh - 90px)); max-width: 100%; aspect-ratio: 1; padding: var(--pad);
+  container: board / inline-size;
   border-radius: clamp(10px, 2.2%, 22px);
   background:
     radial-gradient(60% 60% at 50% 50%, color-mix(in srgb, var(--glow) 16%, transparent), transparent 70%),
@@ -210,8 +211,11 @@
 .pawns { position: absolute; inset: var(--pad); pointer-events: none; z-index: 6; }
 .pawn {
   --pc: hsl(calc(var(--o) * 61.2deg) 80% 60%);
-  position: absolute; width: calc(var(--u) * .56); aspect-ratio: 1; translate: -50% -66%;
+  position: absolute; width: calc(var(--u) * .5); aspect-ratio: 1; translate: -50% -80%;
+  transition: left .28s cubic-bezier(.3, .7, .3, 1), top .28s cubic-bezier(.3, .7, .3, 1);
 }
+/* narrow boards: smaller pawns so prices and corner labels stay readable */
+@container board (max-width: 520px) { .pawn { width: calc(var(--u) * .42); } }
 .pawn::before {
   content: ""; position: absolute; left: 14%; right: 14%; bottom: -6%; height: 22%; border-radius: 50%;
   background: radial-gradient(closest-side, rgba(0, 0, 0, .6), transparent);

@@ -88,9 +88,10 @@
     </div>
   </div>
   <div class="pawns" aria-hidden="true">
+    @{ var spots = SpotsFor(State, side); }
     @foreach (var p in State.Players.Where(p => !p.Bankrupt))
     {
-      var (x, y) = BoardLayout2D.PawnAt(State, p.Id, side);
+      var (x, y) = spots[p.Id];
       <span @key="p.Id" class="pawn @(p.Id == State.CurrentPlayer ? "active" : "")" data-pawn="@p.Id"
             style="left:@Pct(x);top:@Pct(y);--o:@p.Id">
         <span class="pawn-body">
@@ -116,6 +117,11 @@
     private int[] owners = Array.Empty<int>();
     private GameState? seen;
     private string? appliedOpts;
+    private GameSession? subscribed;
+    // Tile each pawn is drawn on while its hop is still playing. Display state is already at the destination when
+    // PlayerMoved plays, so without this the pawn would flash at the destination before the hop starts.
+    private readonly Dictionary<int, int> shownTile = new();
+    private readonly Dictionary<int, int> hopSeq = new();
 
     internal static string Pct(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "%";
 
@@ -158,14 +164,33 @@
 
     protected override void OnParametersSet()
     {
+        // Subscribe here (before the awaited JS imports) so no paced event is missed; a changed session resubscribes.
+        if (!ReferenceEquals(subscribed, Game) && !disposed)
+        {
+            if (subscribed != null) subscribed.EventPlayed -= OnEvent;
+            subscribed = Game;
+            if (subscribed != null) subscribed.EventPlayed += OnEvent;
+            shownTile.Clear();
+        }
         // A snapshot or resync replaces the display object: state is the truth, so cancel in-flight effects.
         if (!ReferenceEquals(seen, State))
         {
-            if (seen != null && fx != null && !disposed) _ = Safe(fx.InvokeVoidAsync("snap").AsTask());
+            if (seen != null) Snap();
             owners = OwnersOf(State);
             seen = State;
         }
     }
+
+    private void Snap()
+    {
+        shownTile.Clear();
+        foreach (var k in hopSeq.Keys.ToList()) hopSeq[k]++;
+        if (fx != null && !disposed) _ = Safe(fx.InvokeVoidAsync("snap").AsTask());
+    }
+
+    private Dictionary<int, (double X, double Y)> SpotsFor(GameState s, int side, int mover = -1, int moverTile = -1) =>
+        BoardLayout2D.Spots(s.Players.Where(p => !p.Bankrupt).Select(p =>
+            (p.Id, p.Id == mover ? moverTile : shownTile.TryGetValue(p.Id, out var t) ? t : p.Position)), side);
 
     private static int[] OwnersOf(GameState s) => s.Properties.Select(p => p?.Owner ?? -1).ToArray();
 
@@ -184,8 +209,11 @@
             fx = await module.InvokeAsync<IJSObjectReference>("create", root, appliedOpts);
             if (disposed) { await DisposeFx(); return; }
         }
-        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { fx = null; return; }
-        if (Game != null) Game.EventPlayed += OnEvent;
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException)
+        {
+            await DisposeFx();
+            return;
+        }
         Settings.Changed += OnSettings;
     }
 
@@ -197,39 +225,58 @@
         await Safe(fx.InvokeVoidAsync("setOptions", o).AsTask());
     }
 
-    private async void OnEvent(GameEvent e, GameState after)
+    // GameSession.Tick raises EventPlayed and then Changed (which re-renders the page). On Blazor WebAssembly the
+    // renderer dispatcher always has access, so InvokeAsync runs Handle inline and its state updates (shownTile,
+    // rollKey, owners) land before that re-render; that ordering is what keeps a moving pawn at its origin.
+    private void OnEvent(GameEvent e, GameState after) => _ = InvokeAsync(() => Handle(e, after));
+
+    private async Task Handle(GameEvent e, GameState after)
     {
-        if (fx == null || disposed) return;
+        if (disposed) return;
         int side = Board.Tiles.Count / 4;
         bool burst = Game != null && Game.PendingEvents > BurstThreshold;
         if (e is DiceRolled) rollKey++;
-        var calls = new List<Task>();
+        var now = OwnersOf(after);
         var target = fx;
-        void Call(string fn, params object?[] args) => calls.Add(target.InvokeVoidAsync(fn, args).AsTask());
+        bool animate = target != null && !burst && !Settings.ReduceMotion;
+        var calls = new List<Task>();
+        void Call(string fn, params object?[] args) => calls.Add(target!.InvokeVoidAsync(fn, args).AsTask());
         static double[] P((double X, double Y) v) => new[] { Math.Round(v.X, 3), Math.Round(v.Y, 3) };
         var bank = new[] { 50.0, 50.0 };
 
-        if (!burst)
+        if (e is PlayerMoved pm)
         {
+            int seq = hopSeq[pm.Player] = hopSeq.GetValueOrDefault(pm.Player) + 1;
+            var path = BoardLayout2D.HopPath(pm.From, pm.To, Board.Tiles.Count, pm.Kind);
+            bool agrees = pm.Player < after.Players.Count && after.Players[pm.Player].Position == pm.To;
+            if (animate && agrees && path.Length > 0)
+            {
+                var pts = new List<double[]> { P(SpotsFor(after, side, pm.Player, pm.From)[pm.Player]) };
+                for (int i = 0; i < path.Length - 1; i++) pts.Add(P(BoardLayout2D.Spot(path[i], 0, 1, side)));
+                pts.Add(P(SpotsFor(after, side, pm.Player, pm.To)[pm.Player]));
+                shownTile[pm.Player] = pm.From;
+                // jumps and long glides (single segment that skips tiles) get a slow high arc instead of one quick hop
+                bool leap = pm.Kind == MoveKind.Jump || (path.Length == 1 && BoardLayout2D.HopPath(pm.From, pm.To, Board.Tiles.Count, MoveKind.Walk).Length != 1
+                                                         && BoardLayout2D.HopPath(pm.From, pm.To, Board.Tiles.Count, MoveKind.Backward).Length != 1);
+                _ = FinishHop(target!, pm.Player, seq, pts, pm.To, leap);
+            }
+            else shownTile.Remove(pm.Player);
+        }
+
+        if (animate)
+        {
+            var spots = SpotsFor(after, side);
+            double[] At(int player) => spots.TryGetValue(player, out var v) ? P(v) : bank;
             switch (e)
             {
-                case PlayerMoved m when m.Player < after.Players.Count && after.Players[m.Player].Position == m.To:
-                    var path = BoardLayout2D.HopPath(m.From, m.To, Board.Tiles.Count, m.Kind);
-                    if (path.Length == 0) break;
-                    var pts = new List<double[]> { P(BoardLayout2D.Centre(m.From, side)) };
-                    for (int i = 0; i < path.Length - 1; i++) pts.Add(P(BoardLayout2D.Centre(path[i], side)));
-                    pts.Add(P(BoardLayout2D.PawnAt(after, m.Player, side)));
-                    Call("hop", m.Player, pts, m.To, BoardLayout2D.Hue(m.Player), m.Kind == MoveKind.Jump);
-                    break;
                 case RentPaid r:
-                    Call("coins", P(BoardLayout2D.PawnAt(after, r.Payer, side)), P(BoardLayout2D.PawnAt(after, r.Payee, side)), BoardLayout2D.CoinCount(r.Amount), r.Amount);
+                    Call("coins", At(r.Payer), At(r.Payee), BoardLayout2D.CoinCount(r.Amount), r.Amount);
                     break;
                 case MoneyTransferred t when t.Amount > 0:
-                    Call("coins", t.From >= 0 ? P(BoardLayout2D.PawnAt(after, t.From, side)) : bank,
-                         t.To >= 0 ? P(BoardLayout2D.PawnAt(after, t.To, side)) : bank, BoardLayout2D.CoinCount(t.Amount), t.Amount);
+                    Call("coins", t.From >= 0 ? At(t.From) : bank, t.To >= 0 ? At(t.To) : bank, BoardLayout2D.CoinCount(t.Amount), t.Amount);
                     break;
                 case SalaryPaid s:
-                    Call("coins", bank, P(BoardLayout2D.PawnAt(after, s.Player, side)), BoardLayout2D.CoinCount(s.Amount), s.Amount);
+                    Call("coins", bank, At(s.Player), BoardLayout2D.CoinCount(s.Amount), s.Amount);
                     break;
                 case BuildingConstructed b:
                     Call("dust", P(BoardLayout2D.Centre(b.Tile, side)), b.Tile);
@@ -238,14 +285,21 @@
                     Call("confetti");
                     break;
             }
+            if (now.Length == owners.Length)
+                for (int i = 0; i < now.Length; i++)
+                    if (now[i] != owners[i] && now[i] >= 0) Call("sweep", i, BoardLayout2D.Hue(now[i]));
         }
-
-        var now = OwnersOf(after);
-        if (!burst && now.Length == owners.Length)
-            for (int i = 0; i < now.Length; i++)
-                if (now[i] != owners[i] && now[i] >= 0) Call("sweep", i, BoardLayout2D.Hue(now[i]));
         owners = now;
         await Safe(Task.WhenAll(calls));
+    }
+
+    // The JS hop resolves when the walk ends (or is cancelled); only the latest hop of a pawn releases it to State.
+    private async Task FinishHop(IJSObjectReference target, int player, int seq, List<double[]> pts, int tile, bool jump)
+    {
+        await Safe(target.InvokeVoidAsync("hop", player, pts, tile, BoardLayout2D.Hue(player), jump).AsTask());
+        if (disposed || hopSeq.GetValueOrDefault(player) != seq) return;
+        shownTile.Remove(player);
+        StateHasChanged();
     }
 
     private static async Task Safe(Task t)
@@ -269,7 +323,8 @@
     public async ValueTask DisposeAsync()
     {
         disposed = true;
-        if (Game != null) Game.EventPlayed -= OnEvent;
+        if (subscribed != null) subscribed.EventPlayed -= OnEvent;
+        subscribed = null;
         Settings.Changed -= OnSettings;
         await DisposeFx();
     }

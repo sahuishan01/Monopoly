@@ -44,7 +44,30 @@ public class BoardLayout2DTests
         s.Players[1].Position = 4;
         s.Players[2].Bankrupt = true;
         s.Players[3].Position = 4;
-        Assert.Equal(BoardLayout2D.Centre(3, 6), BoardLayout2D.PawnAt(s, 0, 6));
+        Assert.Equal(BoardLayout2D.Spot(3, 0, 1, 6), BoardLayout2D.PawnAt(s, 0, 6));
+    }
+
+    [Fact]
+    public void Pawns_stand_on_the_inner_edge_toward_the_centre()
+    {
+        // tile 2 on a 40-tile board is on the bottom row: inward is up, so pawns sit above the tile centre
+        var c = BoardLayout2D.Centre(2, 10);
+        var spot = BoardLayout2D.Spot(2, 0, 1, 10);
+        Assert.Equal(c.X, spot.X, 6);
+        Assert.True(spot.Y < c.Y);
+        // left column (tile 12): inward is right
+        Assert.True(BoardLayout2D.Spot(12, 0, 1, 10).X > BoardLayout2D.Centre(12, 10).X);
+        // start corner (bottom-right): inward is up-left
+        var s0 = BoardLayout2D.Spot(0, 0, 1, 10); var c0 = BoardLayout2D.Centre(0, 10);
+        Assert.True(s0.X < c0.X && s0.Y < c0.Y);
+        // every spot of a crowded tile stays inside that tile's track span
+        double u = 100 / BoardLayout2D.Span(10);
+        for (int k = 0; k < 6; k++)
+        {
+            var p = BoardLayout2D.Spot(2, k, 6, 10);
+            Assert.InRange(p.X, c.X - 0.5 * u, c.X + 0.5 * u);
+            Assert.InRange(p.Y, c.Y - BoardLayout2D.CornerSpan / 2 * u - 0.3 * u, c.Y);
+        }
     }
 
     [Fact]
