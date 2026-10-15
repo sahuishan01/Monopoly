@@ -106,3 +106,145 @@ setting only; iOS.
 3. Deploy the server behind Caddy and set the client's default server URL
    (`Settings.ServerUrl`).
 4. Replace primitive art and synthesised audio where it matters most (tokens, buildings).
+
+---
+
+# Web client (Blazor WebAssembly, "Studio" redesign)
+
+State as of 2026-10-15, branch `feat/web-client`. Not deployed by this work, not tagged and not pushed.
+
+## Structure
+
+| Concern | Location |
+| --- | --- |
+| Pages | `src/Game.Web/Pages/Home.razor`, `Lobby.razor`, `Play.razor` |
+| Board views | `Components/Board2D.razor` (DOM/CSS board, `wwwroot/css/board2d.css`, `js/board2d-fx.js`) and `Components/Board3D.razor` (`js/board3d.js`) |
+| 3D scene | `js/3d/scene.js` (world: lights, slab, inlay, tiles, labels, pawns, buildings), `materials.js` (theme-driven materials, felt/inlay canvas textures), `camera.js` (fitted orbit camera, touch), `motion.js` (tweens, hops, dice) |
+| Effects | `js/fx.js` (particle pool, bloom + vignette composer on High, frame-time probe) |
+| Home hero | `Components/HeroBoard.razor` + `js/hero3d.js` (scripted demo on the 3D world) / `js/hero-policy.js` (gl / css / still) |
+| HUD and dialogs | `Hud.razor`, `HudBar.razor` (mobile peek strip), `PropertyCard.razor`, `TradeDialog.razor`, `EventLog.razor`, `SettingsSheet.razor`, `Sheet.razor`, `Toasts.razor`, `TurnBanner.razor`, `DiceTray.razor`, `Money.razor` |
+| Audio | `Components/AudioBridge.razor` + `js/audio.js` (WebAudio synthesis, no files) |
+| Shortcuts | `js/keys.js` (Space roll, B buy, E end turn, M mute, L log, Esc close) |
+| Services | `Services/SettingsService.cs` (localStorage `boardempire.settings`), `Session.cs`, `GameLoop.cs` |
+| Shared, testable logic | `src/Game.WebClient` (`GameSession`, `EventPacer`, `Cues`, `EventText`, `LobbyText`, `ThemeCatalog`, `DisplayPayload`, `BoardLayout2D`, `TurnActions`) |
+| CSS | `css/tokens.css` (tokens), `layout.css`, `components.css`, `ui.css` (Play), `board2d.css`, `mobile.css` (≤800 px sheet / landscape rail), `screens.css` (Home/Lobby, loaded last) |
+
+## Themes
+
+The four themes are `neon-noir` (default), `classic-gold`, `frost` and `sakura`. Each is defined in `wwwroot/themes/<id>.json`:
+- `css`: tokens set on `<html>`.
+- `scene`: 3D values. `sky[2]`, `felt`, `fog`, `ambient`, `sun` and `bloom` are required; `exposure` is optional and defaults to 1.3.
+- `token`: `metal` and `rough`.
+- `sound`: `wave` and `root` (Hz).
+
+`theme.js` applies a theme:
+- It sets `data-theme` and the tokens.
+- It sets meta theme-color to the theme's `--bg`.
+- It sets `html.theme-switching` for two frames while it swaps the tokens. That class turns transitions off; without it, Chrome can leave var()/color-mix colour transitions stuck on the old theme.
+
+To add a theme:
+1. Add `wwwroot/themes/<id>.json` with all keys (`ThemeCatalog.Validate` lists any that are missing).
+2. Add the id to `ThemeCatalog.Ids`.
+3. Add its picker colours to `ThemeCatalog.Swatches`. A test checks these against the JSON.
+
+`ThemeCatalogTests` fails until all three are in step. The 3D scene, hero, audio and 2D board read the theme at runtime; nothing else needs changing.
+
+## Quality tiers (3D)
+
+- **High**: shadows (2048 PCF soft), bloom + vignette composer, 400 particles, DPR up to 2.
+- **Low**:
+  - No shadows and no composer. 80 particles.
+  - DPR is capped at 1.5 on devices with high DPR and more than 4 cores, and at 1 otherwise.
+  - Lights, slab, inlay and felt are the same as High. They cost a few draw calls plus canvas textures made once per theme.
+- **Auto**:
+  - Picks Low at ≤700 px wide or ≤4 cores (`hero-policy.js autoTier`), High otherwise.
+  - On High it runs a 20-frame probe. One slow probe (median >28 ms) drops to Low. Two good probes restore High.
+- **Reduced motion** (OS setting or in-app): hops, dice and springs complete instantly, and there is no idle bob or camera easing. The hero becomes a still CSS board.
+- **WebGL context loss**:
+  - The Home hero switches to the CSS hero for that visit.
+  - Play falls back to 2D with a toast, and the saved 3D preference is kept. Picking 3D again retries.
+
+## Audio (event -> cue)
+
+`Cues.For` (Game.WebClient) maps each event to a sound and the pacer hold time:
+
+| Event | Sound | Hold |
+| --- | --- | --- |
+| DiceRolled | dice | 0.9 s |
+| PlayerMoved | hop | 0.7 s |
+| PropertyPurchased | buy | 0.5 s |
+| BuildingConstructed | build | 0.6 s |
+| BuildingSold | sell | 0.4 s |
+| RentPaid / MoneyTransferred / SalaryPaid | cash | 0.5 s |
+| PlayerSentToJail | jail | 0.8 s |
+| CardDrawn | card | 0.6 s |
+| AuctionStarted / AuctionCompleted | hammer | 0.6 s |
+| TradeAccepted | trade | 0.5 s |
+| PlayerBankrupt | bankrupt | 0.9 s |
+| GameEnded | win | 1.2 s |
+| TurnStarted | chime | 0.3 s |
+
+Bursts (resync, more than 12 pending events) skip to the end and keep only the win and bankrupt cues; `Cues.Collapse` allows at most 3 cues of each kind.
+
+`audio.js` details:
+- The AudioContext is unlocked on the first gesture.
+- There are master, sfx and music buses, with the theme's waveform and root note.
+- A pentatonic ambient pad plays.
+- Voices are capped at 12.
+- Every entry point does nothing when AudioContext is missing.
+
+Volumes and mute are persisted, and `M` toggles mute.
+
+## Checks
+
+See `tools/web-smoke/README.md`. In short:
+
+```bash
+dotnet test BoardEmpire.sln
+export CHROMIUM_PATH=~/.cache/ms-playwright/chromium-1234/chrome-linux/chrome
+node tools/web-smoke/run-all.mjs --out=/tmp/web-checks
+```
+
+`run-all.mjs` runs the JS unit tests, render-check, smoke, e2e-check, home-check and mobile-check. It publishes the client and starts Game.Server and a proxy on free loopback ports itself, and kills them afterwards. On arm64, WebGL needs `--use-gl=angle --use-angle=gl-egl` (the default there); never use SwiftShader on this host.
+
+The last full run on 2026-10-15 (arm64, 2 cores, software GL) passed:
+- `dotnet test`: 242 passed, 4 skipped.
+- JS unit: 5/5.
+- render-check: 14 renders and 5 framings.
+- smoke: ok.
+- e2e-check: 29/29.
+- home-check: 87/87.
+- mobile-check: 204/204.
+
+## Size (Release publish)
+
+- `wwwroot`: 13.8 MB on disk, which includes the precompressed `.gz`/`.br` copies and the icons.
+- First load (`_framework` + `js` + `css` + `themes`, 93 files): 8.19 MB raw, 3.08 MB with gzip -9, 2.57 MB with brotli -q 11. The build already ships `.br` copies totalling 2.38 MB.
+- That is well inside the 25 MB budget.
+- `three.module.min.js` (0.67 MB raw) is fetched only when a 3D view or the GL hero starts.
+
+## Known limitations
+
+- **Phone boards**: on a 360 px phone, 2D edge tiles are about 30 px, below the 44 px touch rule. A square 40-tile board cannot meet it. The 44 px rule is enforced for HUD, toolbar, sheet and peek controls. Side prices are about 6 px there, and pawns can cover a price or corner label.
+- **3D legibility**:
+  - At desktop size, 40-tile boards make tiles about 40 px on screen. Names are readable on the near rows but small on the far row.
+  - Portrait 3D is width-bound, so sky and felt bands remain above and below the board.
+  - Low on a 2-core, DPR-2 phone renders at 1x and looks soft.
+- **3D taps**: a 3D tile tap while the follow camera is still gliding can miss once (seen in scripted runs, not root-caused).
+- **Not reproduced in tests**: the original 2D hop flicker cannot be reproduced by the frame sampler, so its fix is verified by reasoning and by the sampler only.
+- **Untested platforms**: not checked on a real GPU, on iOS Safari or on Firefox. All browser checks use Chromium with Mesa llvmpipe. Frame times under software GL say nothing about real devices, so no throttled-CPU frame budget was measured.
+- **Cold load**: the boot screen ("Loading BoardEmpire…") uses the default tokens until Blazor applies the saved theme, about a second later.
+- **Mobile layout**: the landscape rail repeats "Your turn" in the peek strip and the HUD head.
+- **Lobby**: the sticky action bar covers content while it scrolls past, as sticky bars do. It is opaque, and the end of the page clears it.
+- **Event text and toasts**:
+  - `EventText` omits ability, objective, economy, project and contract events.
+  - Toasts show bot events too.
+- **Context loss**: the hero stays CSS for the rest of the visit after a context loss.
+
+## Deploy notes
+
+- `tools/deploy-web.sh [/home/opc/web/<dir>]` publishes into a temp dir. It refuses an incomplete output, then rsyncs `wwwroot/` into the target, which must be a subdirectory of `/home/opc/web`. It was **not** run for this work.
+- Releases need explicit confirmation: version bump (`tools/set-version.sh`), tag and push.
+- Serve the precompressed `.br`/`.gz` files when the proxy supports it. Caddy needs `file_server { precompressed br gzip }`.
+- Keep `/api` and `/ws` routed to Game.Server on loopback.
+- No service worker is shipped on purpose.
