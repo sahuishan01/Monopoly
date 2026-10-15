@@ -42,6 +42,9 @@
 
 @code {
     [Parameter] public string Code { get; set; } = "";
+    [SupplyParameterFromQuery] public int? Bots { get; set; }
+    [SupplyParameterFromQuery] public string? Level { get; set; }
+    private bool autoStarted;
     private GameSession? game;
     private string? error;
     private bool navigated;
@@ -74,6 +77,14 @@
             navigated = true;
             InvokeAsync(() => Nav.NavigateTo("/play/" + Code));
             return;
+        }
+        if (!autoStarted && Bots is > 0 && game?.Client is { IsHost: true, Lobby: not null } c)
+        {
+            autoStarted = true;
+            var level = Enum.TryParse<BotLevel>(Level, true, out var lv) ? lv : BotLevel.Medium;
+            for (int i = 0; i < Bots; i++) c.AddBot(level);
+            c.SetReady(true);
+            c.StartMatch();
         }
         InvokeAsync(StateHasChanged);
     }

@@ -13,6 +13,19 @@
       <button disabled="@busy" @onclick="Create">Create room</button>
     </div>
     <div class="row">
+      <label>Bots
+        <select @bind="botCount">
+          @for (int i = 1; i <= 5; i++) { <option value="@i">@i</option> }
+        </select>
+      </label>
+      <label>Level
+        <select @bind="botLevel">
+          @foreach (var l in Enum.GetNames<BotLevel>()) { <option value="@l">@l</option> }
+        </select>
+      </label>
+      <button disabled="@busy" @onclick="PlayBots">Play vs bots</button>
+    </div>
+    <div class="row">
       <input @bind="joinCode" maxlength="8" placeholder="Room code" />
       <button disabled="@busy" @onclick="Join">Join</button>
     </div>
@@ -70,6 +83,16 @@
         var auth = await Session.EnsureGuestAsync(Clean());
         string code = await Session.Api.CreateRoomAsync(auth.DisplayName + "'s game", "classic", "", 6, true);
         Nav.NavigateTo("/room/" + code);
+    });
+
+    private int botCount = 3;
+    private string botLevel = nameof(BotLevel.Medium);
+
+    private Task PlayBots() => Run(async () =>
+    {
+        var auth = await Session.EnsureGuestAsync(Clean());
+        string code = await Session.Api.CreateRoomAsync(auth.DisplayName + "'s game", "classic", "", botCount + 1, false);
+        Nav.NavigateTo($"/room/{code}?bots={botCount}&level={botLevel}");
     });
 
     private Task Join() => Run(async () =>
