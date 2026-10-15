@@ -51,17 +51,28 @@ export class ParticlePool {
   }
 }
 
-// Average frame time over `frames` renders; > 28 ms means the device struggles.
-export function probeQuality(renderFrame, frames = 20, now = () => performance.now()) {
+// Median frame interval over `frames` samples; > 28 ms means the device struggles.
+// Intervals > MAX_GAP_MS (tab resume, long hitch) are discarded and a hidden
+// document restarts the sample set, so neither can cause a false "low".
+export const MAX_GAP_MS = 250;
+export function probeQuality(renderFrame, frames = 20, now = () => performance.now(),
+  hidden = () => typeof document !== 'undefined' && document.hidden) {
   return new Promise(resolve => {
-    let n = 0, total = 0, prev = null;
+    const samples = [];
+    let prev = null;
     const tick = () => {
       let t;
       try { renderFrame(); t = now(); } catch { resolve('low'); return; }
-      if (prev !== null) { total += t - prev; n++; }
+      if (hidden()) { samples.length = 0; prev = null; schedule(tick); return; }
+      if (prev !== null) {
+        const d = t - prev;
+        if (d <= MAX_GAP_MS) samples.push(d);
+      }
       prev = t;
-      if (n >= frames) resolve(total / n > SLOW_FRAME_MS ? 'low' : 'high');
-      else schedule(tick);
+      if (samples.length >= frames) {
+        samples.sort((x, y) => x - y);
+        resolve(samples[samples.length >> 1] > SLOW_FRAME_MS ? 'low' : 'high');
+      } else schedule(tick);
     };
     schedule(tick);
   });
@@ -78,7 +89,7 @@ const KIND = {
 export function createFx(THREE, scene, renderer, camera, theme, quality) {
   let q = quality === 'low' ? 'low' : 'high';
   let th = theme || null;
-  let disposed = false, gen = 0;
+  let disposed = false, gen = 0, failed = false;
   let composer = null, bloom = null, vignette = null;
   let size = [0, 0];
 
@@ -114,11 +125,11 @@ export function createFx(THREE, scene, renderer, camera, theme, quality) {
     if (disposed || !from || !to) return;
     const k = KIND[kind] || KIND.trail;
     for (let i = 0; i < k.n; i++) {
-      const u = i / k.n, life = k.life;
-      const dx = to.x - from.x, dy = to.y - from.y, dz = to.z - from.z;
-      // staggered start along the path, travelling to the target
-      pool.spawn(from.x + dx * u * 0.3, from.y + 0.9 + rnd(0, 0.3), from.z + dz * u * 0.3,
-        dx / life, (dy + 0.9) / life + 0.4, dz / life, k.c[0], k.c[1], k.c[2], life * (0.6 + u * 0.4), 0);
+      const u = i / k.n, life = k.life * (0.6 + u * 0.4);
+      const sx = from.x, sy = from.y + 0.9 + rnd(0, 0.3), sz = from.z;
+      // each particle covers the whole distance within its own lifetime
+      pool.spawn(sx, sy, sz, (to.x - sx) / life, (to.y + 0.4 - sy) / life, (to.z - sz) / life,
+        k.c[0], k.c[1], k.c[2], life, 0);
     }
   }
 
@@ -129,7 +140,9 @@ export function createFx(THREE, scene, renderer, camera, theme, quality) {
       const [ec, rp, ub, sp, op] = await Promise.all(
         ['EffectComposer', 'RenderPass', 'UnrealBloomPass', 'ShaderPass', 'OutputPass'].map(n => import(base + n + '.js')));
       if (disposed || my !== gen || q !== 'high') return;
-      const comp = new ec.EffectComposer(renderer);
+      let comp = null;
+      try {
+      comp = new ec.EffectComposer(renderer);
       comp.addPass(new rp.RenderPass(scene, camera));
       const strength = th && th.scene && typeof th.scene.bloom === 'number' ? th.scene.bloom : 0.5;
       bloom = new ub.UnrealBloomPass(new THREE.Vector2(size[0] || 512, size[1] || 512), strength * 0.6, 0.5, 0.85);
@@ -144,6 +157,10 @@ export function createFx(THREE, scene, renderer, camera, theme, quality) {
       comp.addPass(new op.OutputPass());
       if (size[0]) comp.setSize(size[0], size[1]);
       composer = comp;
+      } catch (err) {
+        if (comp) { try { comp.passes.forEach(p => p.dispose && p.dispose()); comp.renderTarget1.dispose(); comp.renderTarget2.dispose(); } catch { /* ignore */ } }
+        throw err;
+      }
     } catch { /* plain rendering */ }
   }
   function disposeComposer() {
@@ -168,14 +185,20 @@ export function createFx(THREE, scene, renderer, camera, theme, quality) {
     render(dt) {
       pool.step(dt);
       posAttr.needsUpdate = true; colAttr.needsUpdate = true;
-      if (composer) composer.render(dt); else renderer.render(scene, camera);
+      if (composer) {
+        try { composer.render(dt); return; } catch (err) {
+          console.warn('post-processing disabled', err);
+          disposeComposer(); failed = true;
+        }
+      }
+      renderer.render(scene, camera);
     },
     setQuality(next) {
       next = next === 'low' ? 'low' : 'high';
       if (next === q) return;
       q = next;
       pool.setCap(capFor(q));
-      if (q === 'high') enableComposer(); else disposeComposer();
+      if (q === 'high' && !failed) enableComposer(); else disposeComposer();
     },
     setTheme(t) {
       th = t;

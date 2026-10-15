@@ -14,20 +14,38 @@ function autoDefault() {
   return small || cores <= 4 ? 'low' : 'high';
 }
 
-function runProbe() {
+// Auto mode: downgrade after one slow probe; upgrade back to high only after
+// two consecutive good probes (and only if the device default is high).
+let good = 0, probeTimer = 0, resizeTimer = 0;
+function runProbe(delay = 1500) {
   const g = ++probeGen;
-  setTimeout(() => {
+  clearTimeout(probeTimer);
+  probeTimer = setTimeout(() => {
     if (g !== probeGen || !renderer || !auto) return;
     probeQuality(() => {}, 20).then(q => {
       if (g !== probeGen || !renderer || !auto) return;
-      if (q === 'low' && quality !== 'low') { quality = 'low'; applyQuality(); }
+      if (q === 'low') { good = 0; if (quality !== 'low') { quality = 'low'; applyQuality(); } }
+      else if (quality === 'low' && autoDefault() === 'high') {
+        if (++good >= 2) { good = 0; quality = 'high'; applyQuality(); } else runProbe(1000);
+      }
     });
-  }, 1500);
+  }, delay);
+}
+
+function onResize() { resize(); onViewportChange(); }
+
+function onViewportChange() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (!renderer || !auto) return;
+    good = 0;
+    if (autoDefault() === 'low' && quality !== 'low') { quality = 'low'; applyQuality(); }
+    else runProbe(0);
+  }, 1000);
 }
 
 function applyQuality() {
   if (!renderer) return;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1 : 2));
   world.setQuality(quality);
   if (fx) fx.setQuality(quality);
   resize();
@@ -36,6 +54,7 @@ function applyQuality() {
 function resize() {
   if (!renderer || !cam) return;
   const [w, h] = cam.resize();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1 : 2));
   renderer.setSize(w, h, false);
   if (fx) fx.resize(w, h);
 }
@@ -61,9 +80,11 @@ function loop(now) {
   raf = requestAnimationFrame(loop);
   const dt = last ? (now - last) / 1000 : 0.016;
   last = now;
-  cam.tick(dt);
-  world.step(dt);
-  if (fx) fx.render(dt); else renderer.render(world.scene, cam.camera);
+  try {
+    cam.tick(dt);
+    world.step(dt);
+    if (fx) fx.render(dt); else renderer.render(world.scene, cam.camera);
+  } catch (e) { if (!loop.warned) { loop.warned = true; console.warn('board3d frame failed', e); } }
 }
 
 function parse(j) { try { return j ? JSON.parse(j) : null; } catch { return null; } }
@@ -93,12 +114,12 @@ export function init(canvasEl, boardJson, dotnetRef, optsJson) {
     }, { reduceMotion: opts.reduceMotion });
     fx = createFx(THREE, world.scene, renderer, cam.camera, curTheme, quality);
     applyQuality();
-    window.addEventListener('resize', resize);
-    window.addEventListener('orientationchange', resize);
-    if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(resize); ro.observe(canvas); }
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(onResize); ro.observe(canvas); }
     last = 0;
     raf = requestAnimationFrame(loop);
-    if (auto && quality === 'high') runProbe();
+    if (auto && autoDefault() === 'high') runProbe();
     return true;
   } catch (e) {
     console.warn('board3d init failed', e);
@@ -119,7 +140,8 @@ export function setQuality(q) {
   auto = q !== 'low' && q !== 'high';
   quality = auto ? autoDefault() : q;
   applyQuality();
-  if (auto && quality === 'high') runProbe(); else probeGen++;
+  good = 0;
+  if (auto && autoDefault() === 'high') runProbe(); else { probeGen++; clearTimeout(probeTimer); }
 }
 
 export function setReduceMotion(v) { reduce = !!v; if (cam) cam.setReduceMotion(v); if (world) world.setReduceMotion(v); }
@@ -153,11 +175,11 @@ function particles(e) {
 }
 
 export function dispose() {
-  probeGen++;
+  probeGen++; clearTimeout(probeTimer); clearTimeout(resizeTimer);
   if (raf) cancelAnimationFrame(raf);
   raf = 0;
-  window.removeEventListener('resize', resize);
-  window.removeEventListener('orientationchange', resize);
+  window.removeEventListener('resize', onResize);
+  window.removeEventListener('orientationchange', onResize);
   if (ro) { ro.disconnect(); ro = null; }
   if (cam) cam.dispose();
   if (fx) { fx.dispose(); fx = null; }
