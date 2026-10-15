@@ -117,7 +117,7 @@ export async function startStack(opts = {}) {
         server.kill('SIGTERM');
         await new Promise(r => { const t = setTimeout(() => { try { server.kill('SIGKILL'); } catch { } r(); }, 5000); server.once('exit', () => { clearTimeout(t); r(); }); });
       }
-      fs.rmSync(path.join(tmp, 'pub'), { recursive: true, force: true });
+      fs.rmSync(tmp, { recursive: true, force: true });   // publish output and the default server.log
     },
   };
 }
