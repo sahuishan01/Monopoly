@@ -259,5 +259,6 @@
   .tile.corner .ico { padding-top: 4%; }
   .tile.corner .ico svg { width: clamp(12px, 34cqmin, 40px); }
   .tile.corner .tcard { gap: 1%; }
-  .tile.corner .name { line-height: 1.05; }
+  /* plain block, no clamp box: the clamp box centred an over-tall name and clipped its first line */
+  .tile.corner .name { display: block; overflow: visible; align-content: normal; line-height: 1.1; padding-top: 0; }
 }
