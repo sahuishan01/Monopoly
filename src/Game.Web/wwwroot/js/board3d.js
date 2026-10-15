@@ -6,7 +6,7 @@ import { createFx, probeQuality } from './fx.js';
 
 let renderer = null, world = null, cam = null, raf = 0, canvas = null, ro = null, last = 0;
 let dotnet = null, hover = -1, ray = null, pointer = null, quality = 'high';
-let fx = null, reduce = false, auto = false, probeGen = 0, curTheme = null;
+let fx = null, reduce = false, auto = false, probeGen = 0, curTheme = null, fogAt = NaN;
 
 function autoDefault() {
   const small = typeof matchMedia === 'function' && matchMedia('(max-width:700px)').matches;
@@ -51,10 +51,17 @@ function applyQuality() {
   resize();
 }
 
+// Low tier caps the backing store to bound fill cost. On a high-DPR screen with more than 4 cores it allows
+// 1.5x (1x is visibly blurry on phones); weaker devices stay at 1x, the tier's cost cap.
+function lowDpr() {
+  const dpr = window.devicePixelRatio || 1, cores = navigator.hardwareConcurrency || 4;
+  return cores > 4 && dpr >= 1.5 ? 1.5 : 1;
+}
+
 function resize() {
   if (!renderer || !cam) return;
   const [w, h] = cam.resize();
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1.5 : 2));   // low: 1.5x keeps phone text legible without post-processing
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'low' ? lowDpr() : 2));
   renderer.setSize(w, h, false);
   if (fx) fx.resize(w, h);
 }
@@ -84,7 +91,7 @@ function loop(now) {
     cam.tick(dt);
     // Fog tracks the camera distance, so a far-fitted camera (portrait phones) does not wash out the board.
     const fog = world.scene.fog;
-    if (fog) { fog.near = cam.distance + world.side * 1.2; fog.far = cam.distance + world.side * 5.9; }
+    if (fog && cam.distance !== fogAt) { fogAt = cam.distance; fog.near = fogAt + world.side * 1.2; fog.far = fogAt + world.side * 5.9; }
     world.step(dt);
     if (fx) fx.render(dt); else renderer.render(world.scene, cam.camera);
   } catch (e) { if (!loop.warned) { loop.warned = true; console.warn('board3d frame failed', e); } }
@@ -95,6 +102,7 @@ function parse(j) { try { return j ? JSON.parse(j) : null; } catch { return null
 export function init(canvasEl, boardJson, dotnetRef, optsJson) {
   dispose();
   loop.warned = false;
+  fogAt = NaN;
   dotnet = dotnetRef || null;
   try {
     const opts = parse(optsJson) || {};
@@ -164,7 +172,7 @@ export function playEvent(eventJson, burst) {
 }
 
 /** Test hook: NDC bounds of the board's bounding box as the camera currently sees it (|v| <= 1 is on screen). */
-export function framing() {
+function framing() {
   if (!cam) return null;
   const { half, top } = cam.fit, v = new THREE.Vector3(), b = { minX: 1e9, maxX: -1e9, minY: 1e9, maxY: -1e9 };
   cam.camera.updateMatrixWorld();
@@ -176,16 +184,23 @@ export function framing() {
 }
 
 /** Test hook: the tile under a viewport point (what a tap there would select), or -1. */
-export function pickAt(x, y) { return canvas && world ? pick({ clientX: x, clientY: y }) : -1; }
+function pickAt(x, y) { return canvas && world ? pick({ clientX: x, clientY: y }) : -1; }
 
 /** Test hook: NDC position of tile i's centre as the camera currently sees it, or null. */
-export function tileNdc(i) {
+function tileNdc(i) {
   const p = world && cam ? tilePos(i) : null;
   if (!p) return null;
   cam.camera.updateMatrixWorld();
   const v = p.clone().project(cam.camera);
   return { x: v.x, y: v.y };
 }
+
+/** Test-only hooks (render-check.mjs, mobile-check.mjs). Not part of the app API. */
+export const __test = {
+  framing, tileNdc, pickAt,
+  /** True once the camera has eased onto its goal (nothing will move until the next auto/user change). */
+  settled: () => !!cam && cam.settled,
+};
 
 function tilePos(i) { const t = world.tiles[i]; return t ? t.mesh.position : null; }
 function particles(e) {

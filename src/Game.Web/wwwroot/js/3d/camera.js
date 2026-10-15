@@ -108,6 +108,9 @@ export function createCamera(canvas, side, hooks, opts = {}) {
   on('contextmenu', e => e.preventDefault());
   on('pointerdown', e => {
     touch();
+    // Freeze any easing under the finger: a tap selects what was on screen when it landed, even on a slow
+    // device where the follow cam would otherwise keep gliding between pointerdown and the click.
+    goal.theta = cur.theta; goal.phi = cur.phi; goal.radius = cur.radius; goal.target.copy(cur.target);
     // A new primary pointer means no other pointer is down: drop any that never reported up/cancel
     // (e.g. a touch whose end went to an overlay), or a stale entry would block taps and auto-camera.
     if (e.isPrimary) pts.clear();
@@ -178,6 +181,10 @@ export function createCamera(canvas, side, hooks, opts = {}) {
     },
     get manual() { return manualT > 0; },
     get distance() { return cur.radius; },
+    get settled() {
+      return Math.abs(goal.theta - cur.theta) < 1e-3 && Math.abs(goal.phi - cur.phi) < 1e-3
+        && Math.abs(goal.radius - cur.radius) < 1e-2 && goal.target.distanceTo(cur.target) < 1e-2;
+    },
     get fit() { return { radius: fitR, phi: phi0, half, top }; },
     setReduceMotion(v) { reduce = !!v; },
     dispose() { cleanup.forEach(f => f()); cleanup.length = 0; pts.clear(); down = null; },

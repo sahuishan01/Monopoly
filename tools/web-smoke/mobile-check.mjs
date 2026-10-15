@@ -259,42 +259,34 @@ async function runOne(devName, view) {
     // tap a tile -> property card sheet
     let tapInfo = '';
     for (let i = 0; i < 3 && await page.locator('[aria-modal="true"]').count(); i++) { await page.keyboard.press('Escape'); await wait(300); }
+    // One tap, no retry: the first tap after closing the previous sheet must open the card.
     let card = null;
-    for (let attempt = 0; attempt < 4 && !card; attempt++) {
-      if (attempt) tapInfo += ' (retry)';
-      if (view === '3d') {
-        // The camera eases (follow cam on each bot turn): wait until it is still, then tap the on-screen tile
-        // nearest the bottom centre. A touch holds the auto camera for 4 s, so a retry aims at a still board.
-        await page.waitForFunction(async () => {
-          const B = await import('/js/board3d.js');
-          const a = JSON.stringify(B.framing());
-          await new Promise(r => setTimeout(r, 400));
-          return a === JSON.stringify(B.framing());
-        }, null, { timeout: 15000, polling: 500 }).catch(() => { });
-        const pt = await page.evaluate(async () => {
-          const B = await import('/js/board3d.js');
-          const r = document.querySelector('canvas.board3d').getBoundingClientRect();
-          let best = null;
-          for (let i = 0; i < 64; i++) {
-            const n = B.tileNdc(i);
-            if (!n || Math.abs(n.x) > 0.85 || Math.abs(n.y) > 0.85) continue;
-            const d = Math.abs(n.x) + Math.abs(n.y + 0.4);
-            if (!best || d < best.d) best = { i, d, n };
-          }
-          if (!best) return null;
-          const x = r.left + (best.n.x + 1) / 2 * r.width, y = r.top + (1 - best.n.y) / 2 * r.height;
-          return { tile: best.i, x: Math.round(x), y: Math.round(y), pick: B.pickAt(x, y) };
-        });
-        tapInfo += ' ' + JSON.stringify(pt);
-        if (pt) await page.touchscreen.tap(pt.x, pt.y);
-      } else {
-        const r = await page.locator('.board2d .tile[data-tile="3"]').boundingBox();
-        await page.touchscreen.tap(r.x + r.width / 2, r.y + r.height / 2);
-      }
-      card = await page.waitForSelector('.pcard[aria-modal="true"]', { timeout: 5000 }).catch(() => null);
+    if (view === '3d') {
+      // Wait until the camera has eased onto its goal (under software GL frames are slow and the follow cam
+      // glides for seconds), then tap the on-screen tile nearest the bottom centre.
+      await page.waitForFunction(async () => (await import('/js/board3d.js')).__test.settled(), null, { timeout: 30000, polling: 250 }).catch(() => { });
+      const pt = await page.evaluate(async () => {
+        const T = (await import('/js/board3d.js')).__test;
+        const r = document.querySelector('canvas.board3d').getBoundingClientRect();
+        let best = null;
+        for (let i = 0; i < 64; i++) {
+          const n = T.tileNdc(i);
+          if (!n || Math.abs(n.x) > 0.85 || Math.abs(n.y) > 0.85) continue;
+          const d = Math.abs(n.x) + Math.abs(n.y + 0.4);
+          if (!best || d < best.d) best = { i, d, n };
+        }
+        if (!best) return null;
+        const x = r.left + (best.n.x + 1) / 2 * r.width, y = r.top + (1 - best.n.y) / 2 * r.height;
+        return { tile: best.i, x: Math.round(x), y: Math.round(y), pick: T.pickAt(x, y), settled: T.settled() };
+      });
+      tapInfo = JSON.stringify(pt);
+      if (pt) await page.touchscreen.tap(pt.x, pt.y);
+    } else {
+      const r = await page.locator('.board2d .tile[data-tile="3"]').boundingBox();
+      await page.touchscreen.tap(r.x + r.width / 2, r.y + r.height / 2);
     }
+    card = await page.waitForSelector('.pcard[aria-modal="true"]', { timeout: 6000 }).catch(() => null);
     check(run, 'tile tap opens the property card', !!card, tapInfo);
-    if (tapInfo.includes('retry')) console.log(`note [${run}] tile tap needed a retry: ${tapInfo}`);
     if (card) {
       await wait(600);
       await shot('04-tile-card');

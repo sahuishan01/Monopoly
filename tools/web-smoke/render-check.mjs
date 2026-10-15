@@ -120,9 +120,9 @@ const framing = [];
 for (const [w, h] of [[900, 640], [390, 700], [360, 560], [740, 330], [900, 640]]) {
   await page.evaluate(([w, h]) => { const c = document.getElementById('c'); c.style.width = w + 'px'; c.style.height = h + 'px'; }, [w, h]);
   // ResizeObserver refits, then the camera eases in (a few frames; software GL can be slow).
-  await page.waitForFunction(a => { const f = B.framing(); return f && Math.abs(f.aspect - a) < 0.01 && Math.abs(f.distance - f.fit) < f.fit * 0.01; },
+  await page.waitForFunction(a => { const f = B.__test.framing(); return f && Math.abs(f.aspect - a) < 0.01 && Math.abs(f.distance - f.fit) < f.fit * 0.01; },
     w / h, { timeout: 15000 }).catch(() => { });
-  const f = await page.evaluate(() => B.framing());
+  const f = await page.evaluate(() => B.__test.framing());
   const ok = !!f && f.minX >= -1 && f.maxX <= 1 && f.minY >= -1 && f.maxY <= 1;
   framing.push({ size: `${w}x${h}`, ok, f });
   const r = await shot(`frame-${w}x${h}`); r.bad = r.bad || !ok; results.push(r);
