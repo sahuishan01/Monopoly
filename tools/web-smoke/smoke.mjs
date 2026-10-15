@@ -9,7 +9,7 @@ page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
 await page.goto(base, { waitUntil: 'networkidle' });
 await page.fill('input[placeholder="Guest"]', 'SmokeBot');
-await page.click('text=Create room');
+await page.click('button:has-text("Create room")');
 await page.waitForURL(/\/room\//, { timeout: 60000 });
 await page.click('text=Add bot');
 await page.click('text=Ready');

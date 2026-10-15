@@ -3,38 +3,52 @@
 @inject NavigationManager Nav
 
 <main class="home">
-  <h1>BoardEmpire</h1>
+  <header class="hero">
+    <h1>BoardEmpire</h1>
+    <p>Build, trade and bankrupt your friends — right in the browser.</p>
+  </header>
   @if (error != null) { <p class="error" role="alert">@error</p> }
 
   <section class="card">
-    <label>Your name <input @bind="name" maxlength="20" placeholder="Guest" /></label>
-    <div class="row">
-      <button disabled="@busy" @onclick="Quick">Quick match</button>
-      <button disabled="@busy" @onclick="Create">Create room</button>
-    </div>
-    <div class="row">
-      <label>Bots
+    <label class="field">Your name
+      <input @bind="name" maxlength="20" placeholder="Guest" />
+    </label>
+  </section>
+
+  <section class="card primary">
+    <h2>Play vs bots</h2>
+    <p class="hint">Start instantly against computer players.</p>
+    <div class="row wrap">
+      <label class="field">Bots
         <select @bind="botCount">
           @for (int i = 1; i <= 5; i++) { <option value="@i">@i</option> }
         </select>
       </label>
-      <label>Level
+      <label class="field">Level
         <select @bind="botLevel">
           @foreach (var l in Enum.GetNames<BotLevel>()) { <option value="@l">@l</option> }
         </select>
       </label>
       <button disabled="@busy" @onclick="PlayBots">Play vs bots</button>
     </div>
+  </section>
+
+  <section class="card">
+    <h2>Play online</h2>
+    <p class="hint">Find a game or invite friends with a room code.</p>
     <div class="row">
-      <input @bind="joinCode" maxlength="8" placeholder="Room code" />
-      <button disabled="@busy" @onclick="Join">Join</button>
+      <button disabled="@busy" @onclick="Quick">Quick match</button>
+      <button class="ghost" disabled="@busy" @onclick="Create">Create room</button>
+    </div>
+    <div class="row">
+      <input @bind="joinCode" maxlength="8" placeholder="Room code" style="flex:1" />
+      <button class="ghost" disabled="@busy" @onclick="Join">Join</button>
     </div>
   </section>
 
   <section class="card">
-    <h2>Open rooms</h2>
-    <button @onclick="Refresh">Refresh</button>
-    @if (rooms.Count == 0) { <p>No open rooms. Create one!</p> }
+    <h2>Open rooms <button class="ghost" style="float:right;padding:.2rem .6rem" @onclick="Refresh">Refresh</button></h2>
+    @if (rooms.Count == 0) { <p class="hint">No open rooms. Create one!</p> }
     <ul>
       @foreach (var r in rooms)
       {
