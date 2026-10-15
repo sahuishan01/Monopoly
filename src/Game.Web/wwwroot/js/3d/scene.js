@@ -1,10 +1,10 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { tileMaterial, tokenMaterial, buildingMaterial } from './materials.js';
+import { skyTexture, buildEnvironment } from './materials.js';
 
-export function createWorld(board) {
+export function createWorld(board, look, renderer) {
   const side = board.Tiles.length / 4;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0b0d12);
+  scene.fog = new THREE.Fog(0x000000, 28, 75);
   const tokens = new Map();
   const tiles = [];
 
@@ -45,18 +45,65 @@ export function createWorld(board) {
     return m;
   }
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-  sun.position.set(5, 10, 6);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambient);
+  const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+  sun.position.set(side * 0.5, side * 1.2, side * 0.6);
+  const ext = side * 0.9;
+  Object.assign(sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, near: 1, far: side * 4 });
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.bias = -0.0004; sun.shadow.radius = 4;
   scene.add(sun);
+
+  const feltSize = side * 1.2 + 5;
+  const felt = new THREE.Mesh(new THREE.PlaneGeometry(feltSize, feltSize), look.felt);
+  felt.rotation.x = -Math.PI / 2; felt.position.y = -0.07; felt.receiveShadow = true;
+  scene.add(felt);
+
+  let envRT = null;
+  function setTheme(theme) {
+    look.setTheme(theme);
+    const t = look.theme.scene;
+    if (scene.background && scene.background.dispose) scene.background.dispose();
+    scene.background = skyTexture(t.sky[0], t.sky[1]);
+    if (envRT) envRT.dispose();
+    envRT = buildEnvironment(renderer, t.sky[0], t.sky[1]);
+    scene.environment = envRT.texture;
+    scene.fog.color.set(t.fog);
+    ambient.intensity = t.ambient * 1.4;
+    sun.color.set(t.sun);
+  }
+  function setQuality(q) {
+    const on = q !== 'low';
+    renderer.shadowMap.enabled = on;
+    sun.castShadow = on;
+    look.markDirty();
+  }
+
+  function bevelTile() {
+    const w = 1.04, r = 0.08, h = w / 2, sh = new THREE.Shape();
+    sh.moveTo(-h + r, -h); sh.lineTo(h - r, -h); sh.quadraticCurveTo(h, -h, h, -h + r);
+    sh.lineTo(h, h - r); sh.quadraticCurveTo(h, h, h - r, h); sh.lineTo(-h + r, h);
+    sh.quadraticCurveTo(-h, h, -h, h - r); sh.lineTo(-h, -h + r); sh.quadraticCurveTo(-h, -h, -h + r, -h);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.03, bevelSegments: 2, curveSegments: 4 });
+    g.rotateX(-Math.PI / 2); g.translate(0, -0.04, 0);
+    return g;
+  }
+  const tileGeo = bevelTile();
+  const stripGeo = new THREE.BoxGeometry(0.9, 0.02, 0.1);
 
   const colors = {};
   for (const d of board.Districts || []) colors[d.Id] = d.Color;
   board.Tiles.forEach((t, i) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 1.1),
-      tileMaterial(new THREE.Color(colors[t.District] || '#2a3344')));
+    const col = new THREE.Color(colors[t.District] || '#2a3344');
+    const mesh = new THREE.Mesh(tileGeo, look.tile(col.clone().multiplyScalar(0.6)));
     mesh.position.copy(pos(i));
+    mesh.castShadow = mesh.receiveShadow = true;
     scene.add(mesh);
+    const strip = new THREE.Mesh(stripGeo, look.strip(col));
+    strip.position.copy(pos(i)).add(new THREE.Vector3(0, 0.07, -0.42));
+    scene.add(strip);
+    mesh.userData.strip = strip;
     const lab = label(t.Name || '');
     lab.position.copy(pos(i)).setY(0.075);
     scene.add(lab);
@@ -67,7 +114,8 @@ export function createWorld(board) {
   function ensureToken(p) {
     let t = tokens.get(p.Id);
     if (!t) {
-      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.5, 16), tokenMaterial(p.Id));
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.5, 16), look.token(p.Id));
+      mesh.castShadow = true;
       scene.add(mesh);
       t = { mesh, target: pos(p.Position).setY(0.35) };
       mesh.position.copy(t.target);
@@ -77,7 +125,7 @@ export function createWorld(board) {
   }
 
   return {
-    scene, tiles, tokens, side,
+    scene, tiles, tokens, side, setTheme, setQuality,
     pickables: () => tiles.map(t => t.mesh),
     applyState(s) {
       for (const p of s.Players) {
@@ -91,7 +139,8 @@ export function createWorld(board) {
         const h = 0.12 + prop.Level * 0.25;
         if (tile.building) { disposeMesh(tile.building); tile.building = null; }
         if (prop.Level > 0 || prop.Owner >= 0) {
-          const b = new THREE.Mesh(new THREE.BoxGeometry(0.6, Math.max(h, 0.2), 0.6), buildingMaterial(prop));
+          const b = new THREE.Mesh(new THREE.BoxGeometry(0.6, Math.max(h, 0.2), 0.6), look.building(prop));
+          b.castShadow = b.receiveShadow = true;
           b.position.copy(pos(i)).setY(h / 2 + 0.06);
           scene.add(b);
           tile.building = b;
@@ -108,8 +157,12 @@ export function createWorld(board) {
     dispose() {
       for (const t of tokens.values()) disposeMesh(t.mesh);
       tokens.clear();
-      for (const t of tiles) { disposeMesh(t.building); disposeMesh(t.mesh.userData.label); disposeMesh(t.mesh); }
+      for (const t of tiles) { disposeMesh(t.building); disposeMesh(t.mesh.userData.label); disposeMesh(t.mesh.userData.strip); scene.remove(t.mesh); }
       tiles.length = 0;
+      tileGeo.dispose(); stripGeo.dispose(); felt.geometry.dispose(); look.felt.dispose();
+      if (envRT) envRT.dispose();
+      if (scene.background && scene.background.dispose) scene.background.dispose();
+      scene.environment = null;
     },
   };
 }

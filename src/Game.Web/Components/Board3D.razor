@@ -1,5 +1,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime Js
+@inject SettingsService Settings
+@inject HttpClient Http
 
 <canvas @ref="canvas" class="board3d"></canvas>
 
@@ -23,7 +25,10 @@
         {
             module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/board3d.js");
             if (disposed) return;
-            ready = Game.Board != null && await module.InvokeAsync<bool>("init", canvas, DisplayPayload.Board(Game.Board), self = DotNetObjectReference.Create(this));
+            var themeJson = await FetchTheme();
+            var opts = "{\"theme\":" + (themeJson ?? "null") + ",\"quality\":\"" + (Settings.Quality == "low" ? "low" : "high") + "\",\"reduceMotion\":" + (Settings.ReduceMotion ? "true" : "false") + "}";
+            appliedTheme = Settings.Theme;
+            ready = Game.Board != null && await module.InvokeAsync<bool>("init", canvas, DisplayPayload.Board(Game.Board), self = DotNetObjectReference.Create(this), opts);
         }
         catch (Exception e) when (e is JSException or JSDisconnectedException) { ready = false; }
         if (disposed) return;
@@ -35,6 +40,29 @@
         await Push(Game.Display);
         Game.EventPlayed += OnEvent;
         Game.Changed += OnChanged;
+        Settings.Changed += OnSettings;
+    }
+
+    private string? appliedTheme;
+
+    private async Task<string?> FetchTheme()
+    {
+        try { return await Http.GetStringAsync($"themes/{Settings.Theme}.json"); }
+        catch { return null; }
+    }
+
+    private async void OnSettings()
+    {
+        try
+        {
+            if (!ready || module == null || disposed) return;
+            await module.InvokeVoidAsync("setQuality", Settings.Quality == "low" ? "low" : "high");
+            if (Settings.Theme == appliedTheme) return;
+            appliedTheme = Settings.Theme;
+            var json = await FetchTheme();
+            if (json != null && !disposed) await module.InvokeVoidAsync("setTheme", json);
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) { }
     }
 
     private async Task Push(GameState? s)
@@ -72,6 +100,7 @@
         self?.Dispose();
         Game.EventPlayed -= OnEvent;
         Game.Changed -= OnChanged;
+        Settings.Changed -= OnSettings;
         if (module != null)
         {
             try { await module.InvokeVoidAsync("dispose"); await module.DisposeAsync(); }
