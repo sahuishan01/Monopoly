@@ -253,3 +253,11 @@
 }
 
 .board3d { width: min(100%, calc(100vh - 90px)); aspect-ratio: 1; touch-action: none; cursor: grab; border-radius: 12px; background: var(--bg); }
+
+/* small corners (phones): a smaller icon leaves room for a two-line upper-case name without clipping */
+@container tile (max-width: 64px) {
+  .tile.corner .ico { padding-top: 4%; }
+  .tile.corner .ico svg { width: clamp(12px, 34cqmin, 40px); }
+  .tile.corner .tcard { gap: 1%; }
+  .tile.corner .name { line-height: 1.05; }
+}
