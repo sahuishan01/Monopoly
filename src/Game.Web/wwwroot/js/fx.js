@@ -55,18 +55,20 @@ export class ParticlePool {
 // Intervals > MAX_GAP_MS (tab resume, long hitch) are discarded and a hidden
 // document restarts the sample set, so neither can cause a false "low".
 export const MAX_GAP_MS = 250;
+export const MAX_OVER_GAP = 5;
 export function probeQuality(renderFrame, frames = 20, now = () => performance.now(),
   hidden = () => typeof document !== 'undefined' && document.hidden) {
   return new Promise(resolve => {
     const samples = [];
-    let prev = null;
+    let prev = null, over = 0;
     const tick = () => {
       let t;
       try { renderFrame(); t = now(); } catch { resolve('low'); return; }
-      if (hidden()) { samples.length = 0; prev = null; schedule(tick); return; }
+      if (hidden()) { samples.length = 0; prev = null; over = 0; schedule(tick); return; }
       if (prev !== null) {
         const d = t - prev;
-        if (d <= MAX_GAP_MS) samples.push(d);
+        if (d <= MAX_GAP_MS) { samples.push(d); over = 0; }
+        else if (++over >= MAX_OVER_GAP) { resolve('low'); return; } // consistently crawling while visible
       }
       prev = t;
       if (samples.length >= frames) {
@@ -161,7 +163,10 @@ export function createFx(THREE, scene, renderer, camera, theme, quality) {
         if (comp) { try { comp.passes.forEach(p => p.dispose && p.dispose()); comp.renderTarget1.dispose(); comp.renderTarget2.dispose(); } catch { /* ignore */ } }
         throw err;
       }
-    } catch { /* plain rendering */ }
+    } catch (err) {
+      if (!failed) console.warn('post-processing unavailable', err);
+      failed = true;
+    }
   }
   function disposeComposer() {
     gen++;
@@ -189,6 +194,7 @@ export function createFx(THREE, scene, renderer, camera, theme, quality) {
         try { composer.render(dt); return; } catch (err) {
           console.warn('post-processing disabled', err);
           disposeComposer(); failed = true;
+          try { renderer.setRenderTarget(null); } catch { /* ignore */ }
         }
       }
       renderer.render(scene, camera);

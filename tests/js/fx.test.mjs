@@ -24,6 +24,9 @@ assert.equal(await probe(28), 'high');
 assert.equal(await probe(29), 'low');
 assert.equal(await probe(40), 'low', 'steady 40ms');
 assert.equal(await probe(16), 'high', 'steady 16ms');
+assert.equal(await probe(600), 'low', 'crawling visible frames');
+assert.equal(await probeSeq([16, 600, 600, 600, 600, 600, 600]), 'low', 'over-gap streak');
+assert.equal(await probeSeq([...Array(4).fill(600), ...Array(60).fill(16)], [2, 3, 4]), 'high', 'hidden gaps do not count');
 // a 5 s tab-resume gap and an isolated hitch must not downgrade
 assert.equal(await probeSeq([16, 16, 16, 5000, 16, 16, 90, ...Array(40).fill(16)]), 'high', 'gap/hitch');
 // hidden period restarts sampling; slow frames while hidden are discarded

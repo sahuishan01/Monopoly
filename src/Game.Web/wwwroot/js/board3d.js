@@ -91,6 +91,7 @@ function parse(j) { try { return j ? JSON.parse(j) : null; } catch { return null
 
 export function init(canvasEl, boardJson, dotnetRef, optsJson) {
   dispose();
+  loop.warned = false;
   dotnet = dotnetRef || null;
   try {
     const opts = parse(optsJson) || {};
