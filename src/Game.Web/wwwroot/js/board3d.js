@@ -97,6 +97,16 @@ function loop(now) {
   } catch (e) { if (!loop.warned) { loop.warned = true; console.warn('board3d frame failed', e); } }
 }
 
+// The GPU dropped the context (driver reset, too many contexts, tab in the background on mobile): stop drawing and
+// tell the page, which falls back to the 2D board. Picking 3D again re-inits on a fresh canvas.
+function onContextLost(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  if (raf) cancelAnimationFrame(raf);
+  raf = 0;
+  const d = dotnet;
+  if (d) d.invokeMethodAsync('ContextLost').catch(() => {});
+}
+
 function parse(j) { try { return j ? JSON.parse(j) : null; } catch { return null; } }
 
 export function init(canvasEl, boardJson, dotnetRef, optsJson) {
@@ -111,6 +121,7 @@ export function init(canvasEl, boardJson, dotnetRef, optsJson) {
     reduce = !!opts.reduceMotion;
     curTheme = opts.theme || null;
     canvas = canvasEl;
+    canvas.addEventListener('webglcontextlost', onContextLost);
     const board = JSON.parse(boardJson);
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -225,6 +236,7 @@ export function dispose(loseContext) {
   window.removeEventListener('resize', onResize);
   window.removeEventListener('orientationchange', onResize);
   if (ro) { ro.disconnect(); ro = null; }
+  if (canvas) canvas.removeEventListener('webglcontextlost', onContextLost);   // before forceContextLoss below
   if (cam) cam.dispose();
   if (fx) { fx.dispose(); fx = null; }
   if (world) world.dispose();
@@ -234,7 +246,7 @@ export function dispose(loseContext) {
     const gl = renderer.getContext();
     if (gl && !gl.isContextLost()) { gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); }
     renderer.dispose();
-    if (loseContext === true) { try { renderer.forceContextLoss(); } catch { /* ignore */ } }
+    if (loseContext === true && gl && !gl.isContextLost()) { try { renderer.forceContextLoss(); } catch { /* ignore */ } }
     renderer = null;
   }
   dotnet = null; hover = -1;

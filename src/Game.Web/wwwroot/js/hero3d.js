@@ -59,9 +59,10 @@ export function createDemo(board, seed = 7) {
 
 /**
  * Starts the hero on `canvas`. opts: { quality: 'high'|'low' } ('high' turns on shadows and bloom).
+ * dotnetRef (optional) gets HeroLost() if the WebGL context is lost.
  * Returns a handle { setTheme(json), dispose() }, or null when WebGL is unavailable.
  */
-export function start(canvas, boardJson, themeJson, optsJson) {
+export function start(canvas, boardJson, themeJson, optsJson, dotnetRef) {
   const opts = parse(optsJson) || {};
   const hi = opts.quality === 'high';
   let renderer = null, world = null, fx = null, raf = 0, io = null, ro = null;
@@ -137,7 +138,8 @@ export function start(canvas, boardJson, themeJson, optsJson) {
       else if (!want && running) { running = false; cancelAnimationFrame(raf); raf = 0; live.loops--; }
     };
     const onVis = () => run();
-    const onLost = e => { e.preventDefault(); visible = false; run(); };
+    // Context lost: stop, and let the page swap in the CSS hero (it stays CSS; the hero is decoration).
+    const onLost = e => { e.preventDefault(); visible = false; run(); if (dotnetRef) dotnetRef.invokeMethodAsync('HeroLost').catch(() => {}); };
     document.addEventListener('visibilitychange', onVis);
     canvas.addEventListener('webglcontextlost', onLost);
     if (typeof IntersectionObserver !== 'undefined') {
@@ -184,7 +186,7 @@ export function start(canvas, boardJson, themeJson, optsJson) {
     if (renderer) {
       renderer.dispose();
       // Release the GL context now instead of waiting for GC: Home -> Play -> Home must not pile up contexts.
-      try { renderer.forceContextLoss(); } catch { /* ignore */ }
+      try { const gl = renderer.getContext(); if (gl && !gl.isContextLost()) renderer.forceContextLoss(); } catch { /* ignore */ }
       renderer = null;
       live.instances--; live.disposed++;
     }

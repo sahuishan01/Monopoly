@@ -29,6 +29,7 @@
     private string mode = "pending";
     private ElementReference canvas;
     private IJSObjectReference? policy, hero, handle;
+    private DotNetObjectReference<HeroBoard>? self;
     private bool disposed, glPending;
     private int gen;
     private string? appliedTheme;
@@ -85,7 +86,8 @@
         if (my != gen) return;
         appliedTheme = Settings.Theme;
         // GL is only chosen for High or for Auto on a roomy, many-core device, so it always gets the full look.
-        var h = await hero.InvokeAsync<IJSObjectReference?>("start", canvas, DisplayPayload.Board(board), theme, "{\"quality\":\"high\"}");
+        self ??= DotNetObjectReference.Create(this);
+        var h = await hero.InvokeAsync<IJSObjectReference?>("start", canvas, DisplayPayload.Board(board), theme, "{\"quality\":\"high\"}", self);
         if (disposed || mode != "gl" || my != gen)
         {
             if (h != null) { try { await h.InvokeVoidAsync("dispose"); await h.DisposeAsync(); } catch { } }
@@ -93,6 +95,18 @@
         }
         if (h == null) { mode = "css"; StateHasChanged(); return; }
         handle = h;
+    }
+
+    /// <summary>The hero's WebGL context was lost: swap in the CSS hero for the rest of this visit.</summary>
+    [JSInvokable]
+    public async Task HeroLost()
+    {
+        if (disposed || mode != "gl") return;
+        gen++;
+        await StopGl();
+        mode = "css";
+        glPending = false;
+        StateHasChanged();
     }
 
     private async Task StopGl()
@@ -129,6 +143,7 @@
         disposed = true;
         Settings.Changed -= OnSettings;
         await StopGl();
+        self?.Dispose();
         try
         {
             if (hero != null) await hero.DisposeAsync();

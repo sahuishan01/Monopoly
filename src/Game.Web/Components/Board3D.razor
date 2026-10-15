@@ -7,11 +7,20 @@
 
 @code {
     [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
-    [Parameter] public EventCallback OnUnavailable { get; set; }
+    /// <summary>3D cannot run: "init" (WebGL did not start) or "lost" (the GPU dropped the context mid-game).</summary>
+    [Parameter] public EventCallback<string> OnUnavailable { get; set; }
     [Parameter] public EventCallback<int> OnTileClick { get; set; }
     private DotNetObjectReference<Board3D>? self;
 
     [JSInvokable] public Task TileClicked(int tile) => OnTileClick.InvokeAsync(tile);
+
+    [JSInvokable]
+    public async Task ContextLost()
+    {
+        if (disposed || !ready) return;
+        ready = false;
+        await OnUnavailable.InvokeAsync("lost");
+    }
     private ElementReference canvas;
     private IJSObjectReference? module;
     private bool ready;
@@ -41,7 +50,7 @@
         if (disposed) return;
         if (!ready)
         {
-            await OnUnavailable.InvokeAsync();
+            await OnUnavailable.InvokeAsync("init");
             return;
         }
         await Push(Game.Display);

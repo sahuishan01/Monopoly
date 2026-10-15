@@ -59,7 +59,7 @@
         <TradeDialog Game="game" />
       </div>
     </div>
-    <Toasts Game="game" />
+    <Toasts @ref="toasts" Game="game" />
     <EventLog Game="game" Open="logOpen" OnClose="CloseLog" />
     @if (selected is int sel)
     {
@@ -250,7 +250,14 @@
     }
 
     // WebGL could not start: show 2D for this session without overwriting the saved preference.
-    private Task Fallback() { glFailed = true; return InvokeAsync(StateHasChanged); }
+    private Toasts? toasts;
+    private Task Fallback(string reason)
+    {
+        glFailed = true;
+        toasts?.Show(reason == "lost" ? "3D view stopped (graphics context lost). Showing 2D; pick 3D to retry."
+                                      : "3D is not available on this device. Showing 2D.", error: true);
+        return InvokeAsync(StateHasChanged);
+    }
     private Task OnTile(int tile) { hudOpen = false; selected = tile; autoCard = false; settingsOpen = false; logOpen = false; StateHasChanged(); return Task.CompletedTask; }
     private void CloseCard() { selected = null; autoCard = false; }
     private void ToggleLog() { logOpen = !logOpen; if (logOpen) { settingsOpen = false; selected = null; hudOpen = false; } }
