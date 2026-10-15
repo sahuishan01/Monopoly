@@ -6,7 +6,7 @@
 //        [--board=pocket_city] [--debug]
 // Set CHROMIUM_PATH to use a browser other than the one bundled with this playwright version.
 //
-// Exit code 1 if a render is blank, the WebGL context was lost, or the console logged errors/warnings.
+// Exit code 1 if a render is blank, the fitted camera crops the board (portrait/landscape canvas sizes), the WebGL context was lost, or the console logged errors/warnings.
 // Software GL backends (no GPU), always with --no-sandbox --disable-gpu-sandbox --ignore-gpu-blocklist:
 //   swiftshader: --use-gl=angle --use-angle=swiftshader-webgl --enable-unsafe-swiftshader
 //   egl:         --use-gl=angle --use-angle=gl-egl   (system Mesa llvmpipe; needs mesa-libEGL + mesa-dri-drivers)
@@ -115,6 +115,20 @@ for (const q of ['low', 'high']) {
     results.push(await shot(`${id}-${q}`));
   }
 }
+// Camera framing: the whole board must fit the canvas at the default size and in portrait and landscape phone shapes.
+const framing = [];
+for (const [w, h] of [[900, 640], [390, 700], [360, 560], [740, 330], [900, 640]]) {
+  await page.evaluate(([w, h]) => { const c = document.getElementById('c'); c.style.width = w + 'px'; c.style.height = h + 'px'; }, [w, h]);
+  // ResizeObserver refits, then the camera eases in (a few frames; software GL can be slow).
+  await page.waitForFunction(a => { const f = B.framing(); return f && Math.abs(f.aspect - a) < 0.01 && Math.abs(f.distance - f.fit) < f.fit * 0.01; },
+    w / h, { timeout: 15000 }).catch(() => { });
+  const f = await page.evaluate(() => B.framing());
+  const ok = !!f && f.minX >= -1 && f.maxX <= 1 && f.minY >= -1 && f.maxY <= 1;
+  framing.push({ size: `${w}x${h}`, ok, f });
+  const r = await shot(`frame-${w}x${h}`); r.bad = r.bad || !ok; results.push(r);
+}
+await page.evaluate(() => { const c = document.getElementById('c'); c.style.width = ''; c.style.height = ''; });
+
 // re-init after dispose
 const again = await page.evaluate(() => { B.dispose(); const ok = B.init(document.getElementById('c'), JSON.stringify(H.board), null, JSON.stringify({ quality: 'high', theme: H.themes[0] })); B.applyState(JSON.stringify(H.state)); return ok; });
 if (!again) errors.push('re-init returned false');
@@ -125,6 +139,7 @@ await browser.close();
 server.close();
 console.log('renderer:', GL.join(' '));
 for (const r of results) console.log(`${r.bad ? 'FAIL ' : 'ok   '} ${r.name.padEnd(22)} ${r.colours} colours${r.lost ? ' CONTEXT LOST' : ''}`);
+for (const f of framing) console.log(`${f.ok ? 'ok   ' : 'FAIL '} framing ${f.size.padEnd(9)} x ${f.f?.minX.toFixed(2)}..${f.f?.maxX.toFixed(2)} y ${f.f?.minY.toFixed(2)}..${f.f?.maxY.toFixed(2)} r=${f.f?.distance.toFixed(1)}`);
 console.log(errors.length ? `console (${errors.length}):\n` + [...new Set(errors)].map(e => '  ' + e.slice(0, 400)).join('\n') : 'console: clean');
 console.log('screenshots in', outDir);
 process.exit(results.some(r => r.bad) || errors.length ? 1 : 0);

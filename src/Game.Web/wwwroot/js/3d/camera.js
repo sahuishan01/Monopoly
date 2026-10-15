@@ -1,16 +1,49 @@
 import * as THREE from '../vendor/three.module.min.js';
 
-const R_MIN = 5, R_MAX = 40, PHI_MIN = 0.15, PHI_MAX = 1.45;
+const R_MIN = 5, PHI_MIN = 0.15, PHI_MAX = 1.45;
+const FOLLOW = 0.72;            // follow-cam distance as a fraction of the fitted overview distance
+const MARGIN = 0.92;            // fitted board stays inside this fraction of the viewport (NDC)
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
+// Default polar angle: a little more top-down on tall (portrait) canvases so the board uses the height.
+export function defaultPhi(aspect) { return aspect < 0.85 ? 0.72 : 0.9; }
+
+/**
+ * Smallest orbit radius at which the whole board (a box of half-width `half` and height `top`,
+ * centred on the origin) fits inside the viewport for this aspect, fov and polar angle.
+ */
+export function fitRadius(half, top, aspect, fov, phi, margin = MARGIN) {
+  const probe = new THREE.PerspectiveCamera(fov, aspect, 0.1, 1000);
+  const v = new THREE.Vector3(), origin = new THREE.Vector3();
+  const pts = [];
+  for (const x of [-half, half]) for (const y of [0, top]) for (const z of [-half, half]) pts.push(new THREE.Vector3(x, y, z));
+  const fits = r => {
+    probe.position.set(0, r * Math.cos(phi), r * Math.sin(phi));
+    probe.lookAt(origin);
+    probe.updateMatrixWorld();
+    for (const p of pts) {
+      v.copy(p).project(probe);
+      if (v.z > 1 || v.z < -1 || Math.abs(v.x) > margin || Math.abs(v.y) > margin) return false;
+    }
+    return true;
+  };
+  let lo = 1, hi = 400;
+  for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
+  return hi;
+}
+
 // Damped orbit camera with pointer-event controls (1 pointer orbit/pan, 2 pointers pinch + pan).
+// The overview distance is fitted to the canvas aspect so the whole board is visible in portrait and
+// landscape, and re-fitted on resize unless the user has zoomed (an orbit drag keeps its angle too).
 // hooks: {pick(ev)->int, setHover(i), click(i)}
 export function createCamera(canvas, side, hooks, opts = {}) {
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 150);
-  const goal = { theta: 0, phi: 0.9, radius: side * 1.6, target: new THREE.Vector3() };
-  const cur = { theta: 0, phi: 0.9, radius: side * 1.6, target: new THREE.Vector3() };
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 400);
+  const half = side * 0.6 + 0.65, top = 1.2;   // tile centres span ±side*0.6, plus half a tile and the bevel
+  let fitR = side * 1.6, phi0 = 0.9, rMax = 40;
+  const goal = { theta: 0, phi: phi0, radius: fitR, target: new THREE.Vector3() };
+  const cur = { theta: 0, phi: phi0, radius: fitR, target: new THREE.Vector3() };
   let reduce = !!opts.reduceMotion;
-  let desired = null, manualT = 0;
+  let desired = null, manualT = 0, fitted = false, zoomed = false, orbited = false;
   const touch = () => { manualT = 4; };
   const cleanup = [];
   const pts = new Map();
@@ -23,22 +56,44 @@ export function createCamera(canvas, side, hooks, opts = {}) {
       cur.target.z + cur.radius * Math.sin(cur.phi) * Math.cos(cur.theta));
     camera.lookAt(cur.target);
   }
+  const autoRadius = () => desired && desired.follow ? fitR * FOLLOW : fitR;
   // Advance inertia; returns true while still moving.
   function tick(dt) {
-    dt = Number.isFinite(dt) ? dt : 0;
+    dt = Number.isFinite(dt) ? Math.max(0, dt) : 0;
     if (pts.size > 0) manualT = 4;
-    if (manualT > 0) { manualT -= dt; if (manualT <= 0 && desired) goal.target.copy(desired.target), goal.radius = desired.radius; }
+    if (manualT > 0) {
+      manualT -= dt;
+      if (manualT <= 0 && desired) { goal.target.copy(desired.target); if (!zoomed) goal.radius = autoRadius(); }
+    }
     const k = reduce ? 1 : 1 - Math.exp(-Math.min(dt, 0.1) * 12);
     const d = goal.theta - cur.theta, dp = goal.phi - cur.phi, dr = goal.radius - cur.radius;
     cur.theta += d * k; cur.phi += dp * k; cur.radius += dr * k;
     cur.target.lerp(goal.target, k);
     apply();
   }
+  // Re-fit the overview distance to the canvas aspect. The first fit snaps; later ones ease.
+  function refit(aspect) {
+    phi0 = defaultPhi(aspect);
+    fitR = fitRadius(half, top, aspect, camera.fov, phi0);
+    rMax = Math.max(40, fitR * 1.6);
+    if (!orbited) goal.phi = phi0;
+    if (!zoomed && manualT <= 0 && pts.size === 0) goal.radius = autoRadius();
+    goal.radius = clamp(goal.radius, R_MIN, rMax);
+    if (!fitted) { fitted = true; cur.phi = goal.phi; cur.radius = goal.radius; apply(); }
+  }
   function resize() {
     const w = canvas.clientWidth || 600, h = canvas.clientHeight || 600;
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    if (!fitted || Math.abs(w / h - camera.aspect) > 1e-6) {
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      refit(camera.aspect);
+    }
     return [w, h];
+  }
+  function reset() {
+    zoomed = orbited = false;
+    desired = { target: new THREE.Vector3(), follow: false };
+    goal.theta = 0; goal.phi = phi0; goal.radius = fitR; goal.target.set(0, 0, 0);
   }
   function pan(dx, dy) {
     const k = goal.radius * 0.0018;
@@ -67,14 +122,15 @@ export function createCamera(canvas, side, hooks, opts = {}) {
     if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true;
     if (pts.size >= 2) {
       const q = pair();
-      if (lastDist > 0 && q.dist > 0) goal.radius = clamp(goal.radius * lastDist / q.dist, R_MIN, R_MAX);
+      if (lastDist > 0 && q.dist > 0) { goal.radius = clamp(goal.radius * lastDist / q.dist, R_MIN, rMax); zoomed = true; }
       if (lastMid) pan(q.mx - lastMid.x, q.my - lastMid.y);
       lastDist = q.dist; lastMid = { x: q.mx, y: q.my };
     } else if (p.btn === 2 || e.shiftKey) {
       pan(dx, dy);
-    } else {
+    } else if (down && down.moved) {
       goal.theta -= dx * 0.008;
       goal.phi = clamp(goal.phi - dy * 0.008, PHI_MIN, PHI_MAX);
+      orbited = true;
     }
   });
   const up = e => {
@@ -94,22 +150,25 @@ export function createCamera(canvas, side, hooks, opts = {}) {
   on('wheel', e => {
     e.preventDefault();
     touch();
-    goal.radius = clamp(goal.radius * (1 + Math.sign(e.deltaY) * 0.1), R_MIN, R_MAX);
+    zoomed = true;
+    goal.radius = clamp(goal.radius * (1 + Math.sign(e.deltaY) * 0.1), R_MIN, rMax);
   }, { passive: false });
-  on('dblclick', () => { touch(); goal.theta = 0; goal.phi = 0.9; goal.radius = side * 1.6; goal.target.set(0, 0, 0); });
+  on('dblclick', () => { manualT = 0; reset(); });
   apply();
   return {
-    camera, tick, resize,
-    // follow/overview are auto modes; a user drag holds them off for 4 s
+    camera, tick, resize, reset,
+    // follow/overview are auto modes; a user drag holds them off for 4 s, a user zoom keeps its distance
     follow(p) {
-      desired = { target: new THREE.Vector3(p.x, 0, p.z).multiplyScalar(0.6), radius: side * 1.15 };
-      if (manualT <= 0 && pts.size === 0) { goal.target.copy(desired.target); goal.radius = desired.radius; }
+      desired = { target: new THREE.Vector3(p.x, 0, p.z).multiplyScalar(0.6), follow: true };
+      if (manualT <= 0 && pts.size === 0) { goal.target.copy(desired.target); if (!zoomed) goal.radius = autoRadius(); }
     },
     overview() {
-      desired = { target: new THREE.Vector3(), radius: side * 1.6 };
-      if (manualT <= 0 && pts.size === 0) { goal.target.copy(desired.target); goal.radius = desired.radius; }
+      desired = { target: new THREE.Vector3(), follow: false };
+      if (manualT <= 0 && pts.size === 0) { goal.target.copy(desired.target); if (!zoomed) goal.radius = autoRadius(); }
     },
     get manual() { return manualT > 0; },
+    get distance() { return cur.radius; },
+    get fit() { return { radius: fitR, phi: phi0, half, top }; },
     setReduceMotion(v) { reduce = !!v; },
     dispose() { cleanup.forEach(f => f()); cleanup.length = 0; pts.clear(); down = null; },
   };

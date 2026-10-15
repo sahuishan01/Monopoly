@@ -82,6 +82,9 @@ function loop(now) {
   last = now;
   try {
     cam.tick(dt);
+    // Fog tracks the camera distance, so a far-fitted camera (portrait phones) does not wash out the board.
+    const fog = world.scene.fog;
+    if (fog) { fog.near = cam.distance + world.side * 1.2; fog.far = cam.distance + world.side * 5.9; }
     world.step(dt);
     if (fx) fx.render(dt); else renderer.render(world.scene, cam.camera);
   } catch (e) { if (!loop.warned) { loop.warned = true; console.warn('board3d frame failed', e); } }
@@ -158,6 +161,18 @@ export function playEvent(eventJson, burst) {
   const t = e['$t'];
   if (t === 'TurnStarted') { const p = world.tokenPos(e.Player); if (p) cam.follow(p); }
   else if (t === 'AuctionStarted' || (typeof t === 'string' && t.startsWith('Trade'))) cam.overview();
+}
+
+/** Test hook: NDC bounds of the board's bounding box as the camera currently sees it (|v| <= 1 is on screen). */
+export function framing() {
+  if (!cam) return null;
+  const { half, top } = cam.fit, v = new THREE.Vector3(), b = { minX: 1e9, maxX: -1e9, minY: 1e9, maxY: -1e9 };
+  cam.camera.updateMatrixWorld();
+  for (const x of [-half, half]) for (const y of [0, top]) for (const z of [-half, half]) {
+    v.set(x, y, z).project(cam.camera);
+    b.minX = Math.min(b.minX, v.x); b.maxX = Math.max(b.maxX, v.x); b.minY = Math.min(b.minY, v.y); b.maxY = Math.max(b.maxY, v.y);
+  }
+  return { ...b, aspect: cam.camera.aspect, distance: cam.distance, fit: cam.fit.radius };
 }
 
 function tilePos(i) { const t = world.tiles[i]; return t ? t.mesh.position : null; }

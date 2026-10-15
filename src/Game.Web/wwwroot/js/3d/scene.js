@@ -76,7 +76,7 @@ export function createWorld(board, look, renderer, opts = {}) {
   sun.shadow.bias = -0.0004; sun.shadow.radius = 4;
   scene.add(sun);
 
-  const feltSize = side * 1.2 + 5;
+  const feltSize = side * 2.4 + 6;   // wide enough that a far-fitted portrait camera never sees past the table
   const felt = new THREE.Mesh(new THREE.PlaneGeometry(feltSize, feltSize), look.felt);
   felt.rotation.x = -Math.PI / 2; felt.position.y = -0.07; felt.receiveShadow = true;
   scene.add(felt);
