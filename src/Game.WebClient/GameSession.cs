@@ -17,6 +17,8 @@ public sealed class GameSession : IDisposable
     public GameState? Display { get; private set; }
     public BoardDefinition? Board => Client.Board;
     public string? UpdateRequired { get; private set; }
+    /// <summary>Events queued for presentation but not yet played (large values mean a resync burst).</summary>
+    public int PendingEvents => _pacer.Pending;
 
     public event Action? Changed;
     public event Action<GameEvent, GameState>? EventPlayed;

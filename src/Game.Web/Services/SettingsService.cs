@@ -8,8 +8,6 @@ namespace Game.Web.Services;
 public sealed class SettingsService(IJSRuntime js, HttpClient http)
 {
     const string Key = "boardempire.settings";
-    sealed record Stored(string? Theme, string? Quality, double Master, double Sfx, double Music, bool Muted, bool ReduceMotion, bool View3d);
-
     string _theme = ThemeCatalog.Default;
     string _quality = "auto";
     IJSObjectReference? _mod;
@@ -32,11 +30,11 @@ public sealed class SettingsService(IJSRuntime js, HttpClient http)
         try
         {
             var raw = await js.InvokeAsync<string?>("localStorage.getItem", Key);
-            if (!string.IsNullOrEmpty(raw) && JsonSerializer.Deserialize<Stored>(raw) is { } s)
+            if (!string.IsNullOrEmpty(raw) && StoredSettings.Parse(raw) is { } s)
             {
                 Theme = s.Theme ?? ThemeCatalog.Default; Quality = s.Quality ?? "auto";
-                Master = Clamp(s.Master); Sfx = Clamp(s.Sfx); Music = Clamp(s.Music);
-                Muted = s.Muted; ReduceMotion = s.ReduceMotion; View3d = s.View3d;
+                Master = Clamp(s.Master ?? 1); Sfx = Clamp(s.Sfx ?? 1); Music = Clamp(s.Music ?? 0.5);
+                Muted = s.Muted ?? false; ReduceMotion = s.ReduceMotion ?? false; View3d = s.View3d ?? true;
             }
         }
         catch { }
@@ -48,7 +46,7 @@ public sealed class SettingsService(IJSRuntime js, HttpClient http)
     {
         try
         {
-            var json = JsonSerializer.Serialize(new Stored(Theme, Quality, Clamp(Master), Clamp(Sfx), Clamp(Music), Muted, ReduceMotion, View3d));
+            var json = JsonSerializer.Serialize(new StoredSettings(Theme, Quality, Clamp(Master), Clamp(Sfx), Clamp(Music), Muted, ReduceMotion, View3d));
             await js.InvokeVoidAsync("localStorage.setItem", Key, json);
         }
         catch { }

@@ -1,4 +1,5 @@
 @implements IDisposable
+@inject SettingsService Settings
 @{
     var s = Game.Display!;
     // Limitation: only the first seat is used (no hot-seat multi-seat control); spectators have no seat.
@@ -9,6 +10,7 @@
     string cur = s.Players[s.CurrentPlayer].Name;
 }
 <aside class="hud">
+  <button class="ghost mute" aria-pressed="@Settings.Muted" aria-label="@(Settings.Muted ? "Unmute sound" : "Mute sound")" @onclick="ToggleMute">@(Settings.Muted ? "Sound off" : "Sound on")</button>
   <h2>@(myTurn ? "Your turn" : cur + "'s turn")</h2>
   <ul class="players">
     @foreach (var p in s.Players)
@@ -107,6 +109,12 @@
     {
         message = reason;
         InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ToggleMute()
+    {
+        Settings.Muted = !Settings.Muted;
+        await Settings.SaveAsync();
     }
 
     private void OnBidKey(KeyboardEventArgs e)

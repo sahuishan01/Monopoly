@@ -1,0 +1,81 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+@inject SettingsService Settings
+@inject HttpClient Http
+
+@code {
+    [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
+    private IJSObjectReference? module;
+    private bool disposed, ready;
+    private string? appliedTheme;
+    private const int BurstThreshold = 12;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/audio.js");
+            if (disposed) { await module.DisposeAsync(); module = null; return; }
+            await module.InvokeVoidAsync("init", await ThemeJson(), "{}");
+            appliedTheme = Settings.Theme;
+            await ApplyVolumes();
+            await module.InvokeVoidAsync("startAmbient");
+            ready = true;
+            Game.EventPlayed += OnEvent;
+            Settings.Changed += OnSettings;
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException) { ready = false; }
+    }
+
+    private async Task<string> ThemeJson()
+    {
+        try { return await Http.GetStringAsync($"themes/{Settings.Theme}.json"); }
+        catch { return "{}"; }
+    }
+
+    private ValueTask ApplyVolumes() =>
+        module!.InvokeVoidAsync("setVolumes", Settings.Master, Settings.Sfx, Settings.Music, Settings.Muted);
+
+    private async void OnSettings()
+    {
+        try
+        {
+            if (!ready || disposed || module == null) return;
+            await ApplyVolumes();
+            if (Settings.Theme != appliedTheme)
+            {
+                appliedTheme = Settings.Theme;
+                await module.InvokeVoidAsync("setTheme", await ThemeJson());
+            }
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException) { }
+    }
+
+    private async void OnEvent(GameEvent e, GameState after)
+    {
+        try
+        {
+            if (!ready || disposed || module == null) return;
+            var cue = Cues.For(e);
+            if (cue.Kind == CueKind.None) return;
+            // During a resync burst the pacer races through the backlog; only keep the finale cues.
+            if (Game.PendingEvents > BurstThreshold && cue.Kind is not (CueKind.Win or CueKind.Bankrupt)) return;
+            double intensity = e is PlayerMoved m ? m.To : 1;
+            await module.InvokeVoidAsync("play", cue.Sound, intensity);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or ObjectDisposedException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        disposed = true;
+        Game.EventPlayed -= OnEvent;
+        Settings.Changed -= OnSettings;
+        if (module != null)
+        {
+            try { await module.InvokeVoidAsync("dispose"); await module.DisposeAsync(); }
+            catch (Exception e) when (e is JSDisconnectedException or JSException) { }
+        }
+    }
+}
