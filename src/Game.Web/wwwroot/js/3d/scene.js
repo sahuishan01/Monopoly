@@ -26,6 +26,7 @@ export function createWorld(board, look, renderer) {
     if (m.geometry) m.geometry.dispose();
     if (m.material) {
       if (m.material.map) m.material.map.dispose();
+      look.release(m.material);
       m.material.dispose();
     }
   }
@@ -51,6 +52,7 @@ export function createWorld(board, look, renderer) {
   sun.position.set(side * 0.5, side * 1.2, side * 0.6);
   const ext = side * 0.9;
   Object.assign(sun.shadow.camera, { left: -ext, right: ext, top: ext, bottom: -ext, near: 1, far: side * 4 });
+  sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -0.0004; sun.shadow.radius = 4;
   scene.add(sun);
@@ -157,7 +159,7 @@ export function createWorld(board, look, renderer) {
     dispose() {
       for (const t of tokens.values()) disposeMesh(t.mesh);
       tokens.clear();
-      for (const t of tiles) { disposeMesh(t.building); disposeMesh(t.mesh.userData.label); disposeMesh(t.mesh.userData.strip); scene.remove(t.mesh); }
+      for (const t of tiles) { disposeMesh(t.building); disposeMesh(t.mesh.userData.label); disposeMesh(t.mesh.userData.strip); t.mesh.geometry = null; disposeMesh(t.mesh); }
       tiles.length = 0;
       tileGeo.dispose(); stripGeo.dispose(); felt.geometry.dispose(); look.felt.dispose();
       if (envRT) envRT.dispose();

@@ -92,6 +92,8 @@ export function setQuality(q) {
   applyQuality();
 }
 
+export function setReduceMotion(v) { if (cam) cam.setReduceMotion(v); }
+
 export function applyState(stateJson) { if (world) world.applyState(JSON.parse(stateJson)); }
 export function playEvent(eventJson) { if (world) world.playEvent(JSON.parse(eventJson)); }
 

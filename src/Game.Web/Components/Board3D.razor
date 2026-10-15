@@ -26,11 +26,18 @@
             module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/board3d.js");
             if (disposed) return;
             var themeJson = await FetchTheme();
+            if (disposed) return;
             var opts = "{\"theme\":" + (themeJson ?? "null") + ",\"quality\":\"" + (Settings.Quality == "low" ? "low" : "high") + "\",\"reduceMotion\":" + (Settings.ReduceMotion ? "true" : "false") + "}";
-            appliedTheme = Settings.Theme;
+            appliedTheme = Settings.Theme; appliedQuality = Settings.Quality; appliedReduce = Settings.ReduceMotion;
+            if (disposed) return;
             ready = Game.Board != null && await module.InvokeAsync<bool>("init", canvas, DisplayPayload.Board(Game.Board), self = DotNetObjectReference.Create(this), opts);
+            if (disposed)
+            {
+                if (ready) { try { await module.InvokeVoidAsync("dispose"); } catch { } }
+                return;
+            }
         }
-        catch (Exception e) when (e is JSException or JSDisconnectedException) { ready = false; }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException) { ready = false; }
         if (disposed) return;
         if (!ready)
         {
@@ -43,7 +50,9 @@
         Settings.Changed += OnSettings;
     }
 
-    private string? appliedTheme;
+    private string? appliedTheme, appliedQuality;
+    private bool appliedReduce;
+    private int themeSeq;
 
     private async Task<string?> FetchTheme()
     {
@@ -56,11 +65,21 @@
         try
         {
             if (!ready || module == null || disposed) return;
-            await module.InvokeVoidAsync("setQuality", Settings.Quality == "low" ? "low" : "high");
+            if (Settings.Quality != appliedQuality)
+            {
+                appliedQuality = Settings.Quality;
+                await module.InvokeVoidAsync("setQuality", appliedQuality == "low" ? "low" : "high");
+            }
+            if (Settings.ReduceMotion != appliedReduce)
+            {
+                appliedReduce = Settings.ReduceMotion;
+                await module.InvokeVoidAsync("setReduceMotion", appliedReduce);
+            }
             if (Settings.Theme == appliedTheme) return;
             appliedTheme = Settings.Theme;
+            var seq = ++themeSeq;
             var json = await FetchTheme();
-            if (json != null && !disposed) await module.InvokeVoidAsync("setTheme", json);
+            if (json != null && !disposed && seq == themeSeq) await module.InvokeVoidAsync("setTheme", json);
         }
         catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) { }
     }

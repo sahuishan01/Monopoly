@@ -67,6 +67,7 @@ export function createLook(theme) {
       for (const m of tokens) { m.metalness = th.token.metal; m.roughness = th.token.rough; }
       for (const m of strips) m.emissiveIntensity = th.scene.bloom;
     },
+    release(m) { all.delete(m); tokens.delete(m); strips.delete(m); },
     markDirty() { for (const m of all) m.needsUpdate = true; },
   };
   return look;
