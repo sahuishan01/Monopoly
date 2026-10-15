@@ -162,7 +162,13 @@ export function dispose() {
   if (cam) cam.dispose();
   if (fx) { fx.dispose(); fx = null; }
   if (world) world.dispose();
-  if (renderer) { renderer.dispose(); renderer = null; }
+  if (renderer) {
+    // The canvas keeps its GL context across init() calls; reset the unpack state the last
+    // CanvasTexture upload left set, or the next renderer's empty 3D texture upload fails.
+    const gl = renderer.getContext();
+    if (gl && !gl.isContextLost()) { gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); }
+    renderer.dispose(); renderer = null;
+  }
   dotnet = null; hover = -1;
   world = null; cam = null; canvas = null;
 }
