@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.min.js';
 
 const R_MIN = 5, PHI_MIN = 0.15, PHI_MAX = 1.45;
-const FOLLOW = 0.72;            // follow-cam distance as a fraction of the fitted overview distance
+const FOLLOW = 0.85;            // follow-cam distance as a fraction of the fitted overview distance (mild zoom, little cropping)
 const MARGIN = 0.92;            // fitted board stays inside this fraction of the viewport (NDC)
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
@@ -47,7 +47,7 @@ export function createCamera(canvas, side, hooks, opts = {}) {
   const touch = () => { manualT = 4; };
   const cleanup = [];
   const pts = new Map();
-  let down = null, lastDist = 0, lastMid = null;
+  let down = null, lastDist = 0, lastMid = null, tap = false;
 
   function apply() {
     camera.position.set(
@@ -108,8 +108,12 @@ export function createCamera(canvas, side, hooks, opts = {}) {
   on('contextmenu', e => e.preventDefault());
   on('pointerdown', e => {
     touch();
+    // A new primary pointer means no other pointer is down: drop any that never reported up/cancel
+    // (e.g. a touch whose end went to an overlay), or a stale entry would block taps and auto-camera.
+    if (e.isPrimary) pts.clear();
     try { canvas.setPointerCapture(e.pointerId); } catch { }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY, btn: e.button });
+    tap = false;
     if (pts.size === 1) down = { x: e.clientX, y: e.clientY, moved: false };
     else { if (down) down.moved = true; const p = pair(); lastDist = p.dist; lastMid = { x: p.mx, y: p.my }; }
   });
@@ -137,15 +141,21 @@ export function createCamera(canvas, side, hooks, opts = {}) {
     const had = pts.delete(e.pointerId);
     lastDist = 0; lastMid = null;
     if (had && pts.size === 0) {
-      if (e.type === 'pointerup' && down && !down.moved) {
-        const i = hooks.pick(e);
-        if (i >= 0) hooks.click(i);
-      }
+      tap = e.type === 'pointerup' && down && !down.moved;
       down = null;
     }
   };
   on('pointerup', up);
+  // Select on the click that follows a tap, not on pointerup: a touch tap's synthetic click would otherwise
+  // land on the card's backdrop that the selection just opened, and close it again at once.
+  on('click', e => {
+    if (!tap) return;
+    tap = false;
+    const i = hooks.pick(e);
+    if (i >= 0) hooks.click(i);
+  });
   on('pointercancel', up);
+  on('lostpointercapture', e => { if (pts.has(e.pointerId)) up(e); });
   on('pointerleave', () => hooks.setHover(-1));
   on('wheel', e => {
     e.preventDefault();

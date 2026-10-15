@@ -54,7 +54,7 @@ function applyQuality() {
 function resize() {
   if (!renderer || !cam) return;
   const [w, h] = cam.resize();
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1 : 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'low' ? 1.5 : 2));   // low: 1.5x keeps phone text legible without post-processing
   renderer.setSize(w, h, false);
   if (fx) fx.resize(w, h);
 }
@@ -173,6 +173,18 @@ export function framing() {
     b.minX = Math.min(b.minX, v.x); b.maxX = Math.max(b.maxX, v.x); b.minY = Math.min(b.minY, v.y); b.maxY = Math.max(b.maxY, v.y);
   }
   return { ...b, aspect: cam.camera.aspect, distance: cam.distance, fit: cam.fit.radius };
+}
+
+/** Test hook: the tile under a viewport point (what a tap there would select), or -1. */
+export function pickAt(x, y) { return canvas && world ? pick({ clientX: x, clientY: y }) : -1; }
+
+/** Test hook: NDC position of tile i's centre as the camera currently sees it, or null. */
+export function tileNdc(i) {
+  const p = world && cam ? tilePos(i) : null;
+  if (!p) return null;
+  cam.camera.updateMatrixWorld();
+  const v = p.clone().project(cam.camera);
+  return { x: v.x, y: v.y };
 }
 
 function tilePos(i) { const t = world.tiles[i]; return t ? t.mesh.position : null; }
