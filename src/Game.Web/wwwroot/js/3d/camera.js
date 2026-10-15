@@ -25,6 +25,8 @@ export function createCamera(canvas, side, hooks, opts = {}) {
   }
   // Advance inertia; returns true while still moving.
   function tick(dt) {
+    dt = Number.isFinite(dt) ? dt : 0;
+    if (pts.size > 0) manualT = 4;
     if (manualT > 0) { manualT -= dt; if (manualT <= 0 && desired) goal.target.copy(desired.target), goal.radius = desired.radius; }
     const k = reduce ? 1 : 1 - Math.exp(-Math.min(dt, 0.1) * 12);
     const d = goal.theta - cur.theta, dp = goal.phi - cur.phi, dr = goal.radius - cur.radius;
@@ -58,6 +60,7 @@ export function createCamera(canvas, side, hooks, opts = {}) {
   });
   on('pointermove', e => {
     const p = pts.get(e.pointerId);
+    if (p) touch();
     if (!p) { hooks.setHover(hooks.pick(e)); return; }
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY;
@@ -93,18 +96,18 @@ export function createCamera(canvas, side, hooks, opts = {}) {
     touch();
     goal.radius = clamp(goal.radius * (1 + Math.sign(e.deltaY) * 0.1), R_MIN, R_MAX);
   }, { passive: false });
-  on('dblclick', () => { goal.theta = 0; goal.phi = 0.9; goal.radius = side * 1.6; goal.target.set(0, 0, 0); });
+  on('dblclick', () => { touch(); goal.theta = 0; goal.phi = 0.9; goal.radius = side * 1.6; goal.target.set(0, 0, 0); });
   apply();
   return {
     camera, tick, resize,
     // follow/overview are auto modes; a user drag holds them off for 4 s
     follow(p) {
       desired = { target: new THREE.Vector3(p.x, 0, p.z).multiplyScalar(0.6), radius: side * 1.15 };
-      if (manualT <= 0) { goal.target.copy(desired.target); goal.radius = desired.radius; }
+      if (manualT <= 0 && pts.size === 0) { goal.target.copy(desired.target); goal.radius = desired.radius; }
     },
     overview() {
       desired = { target: new THREE.Vector3(), radius: side * 1.6 };
-      if (manualT <= 0) { goal.target.copy(desired.target); goal.radius = desired.radius; }
+      if (manualT <= 0 && pts.size === 0) { goal.target.copy(desired.target); goal.radius = desired.radius; }
     },
     get manual() { return manualT > 0; },
     setReduceMotion(v) { reduce = !!v; },

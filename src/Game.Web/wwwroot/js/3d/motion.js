@@ -70,13 +70,14 @@ export class Motion {
     }
   }
   update(dt) {
-    const d = Math.min(Math.max(dt, 0), 0.05);
+    const d = Math.min(Math.max(Number.isFinite(dt) ? dt : 0, 0), 0.05);
     const cur = this.list;
     for (const t of cur) t.step(d);
     // tweens added during step were pushed onto this.list (same array) - keep them
     this.list = this.list.filter(t => !t.done);
   }
   clear() { this.list = []; }
+  has(key) { return this.list.some(t => t.key === key && !t.done); }
   get active() { return this.list.length; }
 
   hop(token, fromTile, toTile, perStep = 0.18, onDone) {
@@ -84,7 +85,8 @@ export class Motion {
     const path = hopPath(fromTile, toTile, this.n);
     const key = token;
     const slide = path.length === 1 && ((((toTile - fromTile) % this.n) + this.n) % this.n) > 12;
-    let from = m.position.clone ? m.position.clone() : { ...m.position };
+    if (!token.busy) { const p0 = this.posOf(fromTile); m.position.set(p0.x, base, p0.z); }
+    let from = { x: m.position.x, z: m.position.z };
     token.busy = true;
     const finish = () => { token.busy = false; if (onDone) onDone(); };
     const next = i => {

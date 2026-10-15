@@ -93,6 +93,7 @@ export function createWorld(board, look, renderer, opts = {}) {
     scene.fog.color.set(t.fog);
     ambient.intensity = t.ambient * 1.4;
     sun.color.set(t.sun);
+    for (const tl of tiles) if (tl.mort) tl.mesh.userData.strip.material.emissiveIntensity = t.bloom !== undefined ? t.bloom * 0.2 : look.theme.scene.bloom * 0.2;
   }
   function setQuality(q) {
     const on = q !== 'low';
@@ -153,22 +154,23 @@ export function createWorld(board, look, renderer, opts = {}) {
       for (const p of s.Players) {
         const t = ensureToken(p);
         t.mesh.visible = !p.Bankrupt;
-        t.mesh.scale.set(1, 1, 1);
         t.target = pos(p.Position).setY(0.35);
         if (!t.busy) t.mesh.position.copy(t.target);
-        t.tile = p.Position;
+        if (!t.busy && !motion.has(t.mesh)) t.mesh.scale.set(1, 1, 1);
+        if (t.tile !== p.Position) { t.prev = t.tile; t.tile = p.Position; }
       }
       s.Properties.forEach((prop, i) => {
         if (!prop || !tiles[i]) return;
         const tile = tiles[i];
         const sig = prop.Owner + ':' + prop.Level + ':' + !!prop.Mortgaged;
-        if (sig === tile.sig && (tile.building || tile.aura || (prop.Level <= 0 && prop.Owner < 0))) return;
+        if (sig === tile.sig && (tile.building || tile.aura || (prop.Level <= 0 && prop.Owner < 0))) { tile.pendingSpring = false; return; }
         tile.sig = sig;
         const springIt = tile.pendingSpring; tile.pendingSpring = false;
         if (tile.building) { motion.cancel(tile.building); disposeMesh(tile.building); tile.building = null; }
         if (tile.aura) { motion.cancel(tile.aura); disposeMesh(tile.aura); tile.aura = null; }
         // mortgaged tiles desaturate and dim
-        const mort = !!prop.Mortgaged, base = tile.mesh.userData.base, strip = tile.mesh.userData.strip;
+        const mort = !!prop.Mortgaged; tile.mort = mort;
+        const base = tile.mesh.userData.base, strip = tile.mesh.userData.strip;
         const gray = base.r * 0.3 + base.g * 0.59 + base.b * 0.11;
         const dim = mort ? new THREE.Color(gray, gray, gray).multiplyScalar(0.5) : base.clone().multiplyScalar(0.6);
         tile.mesh.material.color.copy(dim);
@@ -209,7 +211,7 @@ export function createWorld(board, look, renderer, opts = {}) {
         case 'PlayerMoved':
           if (tok) {
             const to = pos(e.To).setY(0.35);
-            tok.target = to; tok.tile = e.To;
+            tok.target = to; tok.prev = e.From; tok.tile = e.To;
             motion.cancel(tok);
             if (fast || motion.reduce) { tok.mesh.position.copy(to); tok.mesh.scale.set(1, 1, 1); tok.busy = false; }
             else motion.hop(tok, e.From, e.To, 0.16);
@@ -220,9 +222,10 @@ export function createWorld(board, look, renderer, opts = {}) {
             const to = pos(e.JailTile).setY(0.35);
             tok.target = to;
             motion.cancel(tok);
+            const jf = tok.tile !== e.JailTile ? tok.tile : (tok.prev ?? e.JailTile);
             if (fast || motion.reduce) { tok.mesh.position.copy(to); tok.busy = false; }
-            else motion.hop(tok, tok.tile ?? 0, e.JailTile, 0.16);
-            tok.tile = e.JailTile;
+            else motion.hop(tok, jf ?? 0, e.JailTile, 0.16);
+            tok.prev = jf; tok.tile = e.JailTile;
           }
           break;
         case 'DiceRolled':
