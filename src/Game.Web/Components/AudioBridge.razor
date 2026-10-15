@@ -17,15 +17,20 @@
         {
             module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/audio.js");
             if (disposed) { await module.DisposeAsync(); module = null; return; }
-            await module.InvokeVoidAsync("init", await ThemeJson(), "{}");
+            var theme = await ThemeJson();
+            if (disposed) return;
+            await module.InvokeVoidAsync("init", theme, "{}");
+            if (disposed) return;
             appliedTheme = Settings.Theme;
             await ApplyVolumes();
+            if (disposed) return;
             await module.InvokeVoidAsync("startAmbient");
+            if (disposed) return;
             ready = true;
             Game.EventPlayed += OnEvent;
             Settings.Changed += OnSettings;
         }
-        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException) { ready = false; }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { ready = false; }
     }
 
     private async Task<string> ThemeJson()
@@ -49,7 +54,7 @@
                 await module.InvokeVoidAsync("setTheme", await ThemeJson());
             }
         }
-        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException) { }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
     }
 
     private async void OnEvent(GameEvent e, GameState after)
@@ -64,7 +69,7 @@
             double intensity = e is PlayerMoved m ? m.To : 1;
             await module.InvokeVoidAsync("play", cue.Sound, intensity);
         }
-        catch (Exception ex) when (ex is JSException or JSDisconnectedException or ObjectDisposedException) { }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
     }
 
     public async ValueTask DisposeAsync()
@@ -75,7 +80,7 @@
         if (module != null)
         {
             try { await module.InvokeVoidAsync("dispose"); await module.DisposeAsync(); }
-            catch (Exception e) when (e is JSDisconnectedException or JSException) { }
+            catch (Exception e) when (e is JSDisconnectedException or JSException or TaskCanceledException) { }
         }
     }
 }

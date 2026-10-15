@@ -6,7 +6,8 @@ let vol = { master: 1, sfx: 1, music: 0.5, muted: false };
 let ctx = null, master = null, sfxBus = null, musicBus = null, comp = null, noiseBuf = null;
 let voices = [];
 let ambient = null;
-let listening = false, disposed = false;
+let listening = false, disposed = false, ambientWanted = false;
+const GESTURES = ['pointerdown', 'keydown', 'click', 'touchend'];
 
 function Ctor() { return globalThis.AudioContext || globalThis.webkitAudioContext || null; }
 function parse(j) { try { return typeof j === 'string' ? JSON.parse(j) : (j || {}); } catch { return {}; } }
@@ -22,9 +23,10 @@ function applyGains() {
   if (!ctx) return;
   const m = vol.muted ? 0 : vol.master;
   try {
-    master.gain.value = m;
-    sfxBus.gain.value = vol.sfx;
-    musicBus.gain.value = vol.music * 0.5;
+    const t = ctx.currentTime;
+    master.gain.setTargetAtTime(m, t, 0.02);
+    sfxBus.gain.setTargetAtTime(vol.sfx, t, 0.02);
+    musicBus.gain.setTargetAtTime(vol.music * 0.5, t, 0.02);
   } catch { }
 }
 function onGesture() {
@@ -33,13 +35,12 @@ function onGesture() {
 function listen() {
   if (listening || !globalThis.addEventListener) return;
   listening = true;
-  globalThis.addEventListener('pointerdown', onGesture, true);
-  globalThis.addEventListener('keydown', onGesture, true);
+  for (const ev of GESTURES) globalThis.addEventListener(ev, onGesture, true);
 }
 function unlisten() {
   if (!listening) return;
   listening = false;
-  try { globalThis.removeEventListener('pointerdown', onGesture, true); globalThis.removeEventListener('keydown', onGesture, true); } catch { }
+  try { for (const ev of GESTURES) globalThis.removeEventListener(ev, onGesture, true); } catch { }
 }
 function ensure() {
   if (disposed) return false;
@@ -75,7 +76,9 @@ function track(nodes, stopAt) {
     for (const n of nodes) { try { if (n.stop) n.stop(); } catch { } }
     end();
   };
-  const last = nodes.find(n => n.__last);
+  // End the voice from the source that stops LAST, never the first.
+  let last = null;
+  for (const n of nodes) if (n.__last && (!last || n.__end >= last.__end)) last = n;
   if (last) last.onended = end;
   else if (typeof setTimeout === 'function') setTimeout(end, Math.max(0, (stopAt - ctx.currentTime) * 1000 + 100));
   while (voices.length > MAX_VOICES) voices[0].kill();
@@ -92,7 +95,7 @@ function tone(type, freq, t0, dur, peak, dest, glideTo) {
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   o.connect(g); g.connect(dest);
   o.start(t0); o.stop(t0 + dur + 0.02);
-  o.__last = true;
+  o.__last = true; o.__end = t0 + dur + 0.02;
   return [o, g];
 }
 function noise(t0, dur, freq, q, peak, dest, type) {
@@ -102,7 +105,7 @@ function noise(t0, dur, freq, q, peak, dest, type) {
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   s.connect(f); f.connect(g); g.connect(dest);
   s.start(t0); s.stop(t0 + dur + 0.02);
-  s.__last = true;
+  s.__last = true; s.__end = t0 + dur + 0.02;
   return [s, f, g];
 }
 
@@ -148,7 +151,7 @@ const VOICES = {
 };
 
 export function init(themeJson, settingsJson) {
-  disposed = false;
+  disposed = false; ambientWanted = false;
   applyTheme(parse(themeJson));
   const s = parse(settingsJson);
   setVolumes(s.master ?? s.Master ?? vol.master, s.sfx ?? s.Sfx ?? vol.sfx, s.music ?? s.Music ?? vol.music, s.muted ?? s.Muted ?? vol.muted);
@@ -158,6 +161,7 @@ export function setTheme(themeJson) { applyTheme(parse(themeJson)); }
 export function setVolumes(m, s, mu, muted) {
   vol = { master: clamp01(m), sfx: clamp01(s), music: clamp01(mu), muted: !!muted };
   applyGains();
+  syncAmbient();
 }
 export function play(id, intensity = 1) {
   const fn = VOICES[id];
@@ -169,8 +173,11 @@ export function play(id, intensity = 1) {
     track(nodes, end);
   } catch { }
 }
-export function startAmbient() {
-  if (ambient || vol.muted || !ensure()) return;
+export function startAmbient() { ambientWanted = true; syncAmbient(); }
+function syncAmbient() {
+  const should = ambientWanted && !disposed && !vol.muted && vol.music > 0 && vol.master > 0;
+  if (!should) { haltAmbient(); return; }
+  if (ambient || !ensure()) return;
   try {
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700;
     const g = ctx.createGain(); g.gain.value = 0.25;
@@ -189,7 +196,8 @@ export function startAmbient() {
     ambient = { nodes: [o1, o2, lp, g], timer, o: [o1, o2] };
   } catch { ambient = null; }
 }
-export function stopAmbient() {
+export function stopAmbient() { ambientWanted = false; haltAmbient(); }
+function haltAmbient() {
   if (!ambient) return;
   clearInterval(ambient.timer);
   for (const o of ambient.o) { try { o.stop(); } catch { } }
@@ -197,7 +205,7 @@ export function stopAmbient() {
   ambient = null;
 }
 export function dispose() {
-  disposed = true;
+  disposed = true; ambientWanted = false;
   unlisten();
   stopAmbient();
   for (const v of [...voices]) v.kill();

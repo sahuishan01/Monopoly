@@ -101,9 +101,13 @@
         if (ReferenceEquals(subscribed, Game)) return;
         if (subscribed != null) subscribed.Client.CommandFailed -= OnFailed;
         subscribed = Game;
+        if (!settingsHooked) { Settings.Changed += OnSettingsChanged; settingsHooked = true; }
         Game.Client.CommandFailed -= OnFailed;
         Game.Client.CommandFailed += OnFailed;
     }
+
+    private bool settingsHooked;
+    private void OnSettingsChanged() => InvokeAsync(StateHasChanged);
 
     private void OnFailed(string id, string reason)
     {
@@ -139,5 +143,6 @@
     public void Dispose()
     {
         if (subscribed != null) subscribed.Client.CommandFailed -= OnFailed;
+        Settings.Changed -= OnSettingsChanged;
     }
 }
