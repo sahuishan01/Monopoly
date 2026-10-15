@@ -1,0 +1,99 @@
+@implements IDisposable
+@* Transient notices: rejected commands, notable game events and chat. At most four are visible;
+   each dismisses itself. Announced politely to screen readers. *@
+<div class="toasts" aria-live="polite" aria-relevant="additions">
+  @foreach (var t in items)
+  {
+    <div @key="t.Id" class="toast tone-@t.Tone.ToString().ToLowerInvariant() @(t.Error ? "err" : "")" style="--o:@Math.Max(0, t.Actor);--ttl:@(t.Ms)ms">
+      @if (t.Error)
+      {
+        <svg class="toast-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 21h20zM12 10v5M12 18v.01" /></svg>
+      }
+      else if (t.Actor >= 0)
+      {
+        <span class="pdot" aria-hidden="true"></span>
+      }
+      <span class="toast-text">@t.Text</span>
+      <button class="toast-x" aria-label="Dismiss" @onclick="() => Remove(t.Id)">×</button>
+    </div>
+  }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
+
+    private sealed record Toast(int Id, string Text, int Actor, EventTone Tone, bool Error, int Ms);
+    private const int MaxVisible = 4;
+    private const int BurstThreshold = 12;
+    private readonly List<Toast> items = new();
+    private GameSession? subscribed;
+    private int nextId;
+    private bool disposed;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(subscribed, Game)) return;
+        Unsubscribe();
+        subscribed = Game;
+        Game.EventPlayed += OnEvent;
+        Game.Client.CommandFailed += OnFailed;
+        Game.Client.ChatReceived += OnChat;
+    }
+
+    /// <summary>Shows a toast; used for rejected commands and by the page for local notices.</summary>
+    public void Show(string text, int actor = -1, EventTone tone = EventTone.Neutral, bool error = false)
+    {
+        if (disposed || string.IsNullOrWhiteSpace(text)) return;
+        int ms = error ? 5000 : 3600;
+        items.RemoveAll(x => x.Text == text);   // a repeat replaces the older copy instead of stacking
+        var t = new Toast(++nextId, text, actor, tone, error, ms);
+        items.Add(t);
+        while (items.Count > MaxVisible) items.RemoveAt(0);
+        _ = Expire(t.Id, ms);
+    }
+
+    private async Task Expire(int id, int ms)
+    {
+        await Task.Delay(ms);
+        if (!disposed) await InvokeAsync(() => Remove(id));
+    }
+
+    private void Remove(int id)
+    {
+        if (items.RemoveAll(t => t.Id == id) > 0) StateHasChanged();
+    }
+
+    private void OnEvent(GameEvent e, GameState after)
+    {
+        if (Game.PendingEvents > BurstThreshold && e is not (GameEnded or PlayerBankrupt)) return;
+        var line = EventText.Describe(e, after);
+        if (line == null || !line.Notable) return;
+        _ = InvokeAsync(() => { Show(line.Text, line.Actor, line.Tone); StateHasChanged(); });
+    }
+
+    private void OnFailed(string id, string reason) =>
+        _ = InvokeAsync(() => { Show(reason, -1, EventTone.Bad, error: true); StateHasChanged(); });
+
+    private void OnChat(int seat, int preset)
+    {
+        var s = Game.Display;
+        if (preset < 0 || preset >= ChatPresets.Lines.Length) return;
+        string who = s != null && seat >= 0 && seat < s.Players.Count ? s.Players[seat].Name : "Someone";
+        _ = InvokeAsync(() => { Show($"{who}: {ChatPresets.Lines[preset]}", seat); StateHasChanged(); });
+    }
+
+    private void Unsubscribe()
+    {
+        if (subscribed == null) return;
+        subscribed.EventPlayed -= OnEvent;
+        subscribed.Client.CommandFailed -= OnFailed;
+        subscribed.Client.ChatReceived -= OnChat;
+        subscribed = null;
+    }
+
+    public void Dispose()
+    {
+        disposed = true;
+        Unsubscribe();
+    }
+}

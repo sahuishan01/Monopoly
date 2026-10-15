@@ -1,4 +1,10 @@
+@inject SettingsService Settings
 <Router AppAssembly="typeof(App).Assembly">
   <Found Context="route"><RouteView RouteData="route" /></Found>
   <NotFound><p class="notice">Page not found. <a href="/">Back to BoardEmpire</a></p></NotFound>
 </Router>
+
+@code {
+    // Apply the stored theme and audio/motion settings as early as possible on every page.
+    protected override Task OnInitializedAsync() => Settings.EnsureLoadedAsync();
+}

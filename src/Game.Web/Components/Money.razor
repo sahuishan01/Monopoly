@@ -1,0 +1,70 @@
+@implements IDisposable
+@inject SettingsService Settings
+@* Cash amount that counts up/down to a new value and flashes the change. *@
+<b class="money @(flash)" aria-label="@(Currency + Value)">
+  <span aria-hidden="true">@Currency@shown</span>
+  @if (delta != 0)
+  {
+    <span @key="deltaKey" class="money-delta @(delta > 0 ? "up" : "down")" aria-hidden="true">@(delta > 0 ? "+" : "−")@Currency@Math.Abs(delta)</span>
+  }
+</b>
+
+@code {
+    [Parameter] public int Value { get; set; }
+    [Parameter] public string Currency { get; set; } = "";
+
+    private int shown, target, delta, deltaKey;
+    private string flash = "";
+    private bool started, disposed;
+    private CancellationTokenSource? run;
+    private const double Duration = 0.6;
+
+    protected override void OnParametersSet()
+    {
+        if (!started) { started = true; shown = target = Value; return; }
+        if (Value == target) return;
+        delta = Value - target;
+        deltaKey++;
+        flash = delta > 0 ? "gain" : "loss";
+        int from = shown;
+        target = Value;
+        run?.Cancel();
+        if (Settings.ReduceMotion) { shown = target; _ = ClearFlash(deltaKey); return; }
+        run = new CancellationTokenSource();
+        _ = Animate(from, target, run.Token, deltaKey);
+    }
+
+    private async Task Animate(int from, int to, CancellationToken ct, int key)
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            while (!ct.IsCancellationRequested && !disposed)
+            {
+                double t = Math.Min(1, clock.Elapsed.TotalSeconds / Duration);
+                double eased = 1 - Math.Pow(1 - t, 3);
+                shown = (int)Math.Round(from + (to - from) * eased);
+                StateHasChanged();
+                if (t >= 1) break;
+                await Task.Delay(33, ct);
+            }
+        }
+        catch (TaskCanceledException) { return; }
+        await ClearFlash(key);
+    }
+
+    private async Task ClearFlash(int key)
+    {
+        await Task.Delay(900);
+        if (disposed || key != deltaKey) return;
+        flash = "";
+        delta = 0;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        disposed = true;
+        run?.Cancel();
+    }
+}

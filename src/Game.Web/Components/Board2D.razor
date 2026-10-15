@@ -148,7 +148,7 @@
 
     public static string PawnPath(int token) => Pawns[((token % Pawns.Length) + Pawns.Length) % Pawns.Length];
 
-    private static MarkupString Icon(TileType t) => new(t switch
+    internal static MarkupString Icon(TileType t) => new(t switch
     {
         TileType.Start => "<svg viewBox=\"0 0 24 24\"><path d=\"M21 12H5M11 5l-7 7 7 7\"/><path d=\"M21 6v12\" opacity=\".5\"/></svg>",
         TileType.Transit => "<svg viewBox=\"0 0 24 24\"><rect x=\"6\" y=\"3\" width=\"12\" height=\"13\" rx=\"3\"/><path d=\"M6 10h12M9 19l-2 3M15 19l2 3\"/><circle cx=\"9.5\" cy=\"13\" r=\".9\"/><circle cx=\"14.5\" cy=\"13\" r=\".9\"/></svg>",

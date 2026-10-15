@@ -1,28 +1,39 @@
 @{
     var s = Game.Display!;
-    int me = Game.Client.Seats.Length > 0 ? Game.Client.Seats[0] : -1;
+    int me = TurnActions.Me(Game.Client.Seats);
+    string currency = Game.Board!.Currency;
 }
 @if (me >= 0)
 {
-<div class="panel card">
-  <h3>Trades</h3>
+<section class="panel card glass trades" aria-labelledby="trades-title">
+  <h3 id="trades-title">Trades</h3>
   @foreach (var t in s.Trades.Where(t => t.To == me))
   {
-    <div class="row">
-      <span>@s.Players[t.From].Name offers @Describe(t.Give) for @Describe(t.Receive)</span>
-      <button @onclick="() => Game.Client.SendCommand(new AcceptTradeCommand(me, t.Id))">Accept</button>
-      <button class="ghost" @onclick="() => Game.Client.SendCommand(new RejectTradeCommand(me, t.Id))">Reject</button>
+    <div class="offer-card" style="--o:@t.From">
+      <p><span class="pdot" aria-hidden="true"></span><b>@s.Players[t.From].Name</b> offers <b>@Describe(t.Give)</b> for <b>@Describe(t.Receive)</b></p>
+      <div class="actions">
+        <button class="primary" @onclick="() => Game.Client.SendCommand(new AcceptTradeCommand(me, t.Id))">Accept</button>
+        <button class="ghost" @onclick="() => Game.Client.SendCommand(new RejectTradeCommand(me, t.Id))">Reject</button>
+      </div>
     </div>
   }
-  <div class="row">
-    <select @bind="partner">
-      @foreach (var p in s.Players.Where(p => p.Id != me && !p.Bankrupt)) { <option value="@p.Id">@p.Name</option> }
-    </select>
-    <input type="number" @bind="give" min="0" placeholder="You give" />
-    <input type="number" @bind="receive" min="0" placeholder="You receive" />
-    <button @onclick="Offer">Offer</button>
+  <div class="trade-form">
+    <label class="field" for="trade-partner">Trade with
+      <select id="trade-partner" @bind="partner">
+        @foreach (var p in s.Players.Where(p => p.Id != me && !p.Bankrupt)) { <option value="@p.Id">@p.Name</option> }
+      </select>
+    </label>
+    <div class="trade-amounts">
+      <label class="field" for="trade-give">You give (@currency)
+        <input id="trade-give" type="number" inputmode="numeric" @bind="give" min="0" placeholder="0" />
+      </label>
+      <label class="field" for="trade-receive">You receive (@currency)
+        <input id="trade-receive" type="number" inputmode="numeric" @bind="receive" min="0" placeholder="0" />
+      </label>
+    </div>
+    <button class="ghost" @onclick="Offer">Offer trade</button>
   </div>
-</div>
+</section>
 }
 
 @code {
@@ -34,6 +45,15 @@
     private int receive;
 
     protected override void OnInitialized() => partner = Partner;
+
+    // Keep the select showing a real choice: default (or fall back) to the first other player still in the game.
+    protected override void OnParametersSet()
+    {
+        var s = Game.Display;
+        int me = TurnActions.Me(Game.Client.Seats);
+        if (s == null || s.Players.Any(p => p.Id == partner && p.Id != me && !p.Bankrupt)) return;
+        partner = s.Players.FirstOrDefault(p => p.Id != me && !p.Bankrupt)?.Id ?? -1;
+    }
 
     private string Describe(TradeSide side)
     {
@@ -49,7 +69,7 @@
 
     private void Offer()
     {
-        int me = Game.Client.Seats.Length > 0 ? Game.Client.Seats[0] : -1;
+        int me = TurnActions.Me(Game.Client.Seats);
         var s = Game.Display;
         if (me < 0 || s == null) return;
         int to = partner;

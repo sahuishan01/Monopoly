@@ -1,0 +1,53 @@
+@implements IDisposable
+@inject SettingsService Settings
+@* "Your turn" / "<Name>'s turn" banner that slides across the board for ~1.2 s on each TurnStarted. *@
+@if (shown is { } b)
+{
+  <div @key="b.Key" class="turn-banner @(b.Mine ? "mine" : "") @(Settings.ReduceMotion ? "still" : "")" style="--o:@b.Player" aria-hidden="true">
+    <span class="tb-line"></span>
+    <span class="tb-text">@b.Text</span>
+    <span class="tb-line"></span>
+  </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
+
+    private sealed record Banner(int Key, int Player, string Text, bool Mine);
+    private Banner? shown;
+    private GameSession? subscribed;
+    private int key;
+    private bool disposed;
+    private const int BurstThreshold = 12;
+    public const int DurationMs = 1200;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(subscribed, Game)) return;
+        if (subscribed != null) subscribed.EventPlayed -= OnEvent;
+        subscribed = Game;
+        Game.EventPlayed += OnEvent;
+    }
+
+    private void OnEvent(GameEvent e, GameState after)
+    {
+        if (e is not TurnStarted t || Game.PendingEvents > BurstThreshold || t.Player < 0 || t.Player >= after.Players.Count) return;
+        bool mine = TurnActions.Me(Game.Client.Seats) == t.Player;
+        var b = new Banner(++key, t.Player, mine ? "Your turn" : after.Players[t.Player].Name + "'s turn", mine);
+        _ = InvokeAsync(async () =>
+        {
+            shown = b;
+            StateHasChanged();
+            await Task.Delay(DurationMs);
+            if (disposed || !ReferenceEquals(shown, b)) return;
+            shown = null;
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        disposed = true;
+        if (subscribed != null) subscribed.EventPlayed -= OnEvent;
+    }
+}

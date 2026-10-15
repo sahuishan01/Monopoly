@@ -20,6 +20,12 @@ public sealed class SettingsService(IJSRuntime js, HttpClient http)
     public bool Muted { get; set; }
     public bool ReduceMotion { get; set; }
     public bool View3d { get; set; } = true;
+    /// <summary>True once the user (or a stored blob) chose a view; until then the play screen picks one from device capability.</summary>
+    public bool HasView3d { get; set; }
+
+    Task? _load;
+    /// <summary>Loads persisted settings once per app instance; later calls await the same load.</summary>
+    public Task EnsureLoadedAsync() => _load ??= LoadAsync();
 
     public event Action? Changed;
 
@@ -34,7 +40,7 @@ public sealed class SettingsService(IJSRuntime js, HttpClient http)
             {
                 Theme = s.Theme ?? ThemeCatalog.Default; Quality = s.Quality ?? "auto";
                 Master = Clamp(s.Master ?? 1); Sfx = Clamp(s.Sfx ?? 1); Music = Clamp(s.Music ?? 0.5);
-                Muted = s.Muted ?? false; ReduceMotion = s.ReduceMotion ?? false; View3d = s.View3d ?? true;
+                Muted = s.Muted ?? false; ReduceMotion = s.ReduceMotion ?? false; View3d = s.View3d ?? true; HasView3d = s.View3d.HasValue;
             }
         }
         catch { }
@@ -46,7 +52,7 @@ public sealed class SettingsService(IJSRuntime js, HttpClient http)
     {
         try
         {
-            var json = JsonSerializer.Serialize(new StoredSettings(Theme, Quality, Clamp(Master), Clamp(Sfx), Clamp(Music), Muted, ReduceMotion, View3d));
+            var json = JsonSerializer.Serialize(new StoredSettings(Theme, Quality, Clamp(Master), Clamp(Sfx), Clamp(Music), Muted, ReduceMotion, HasView3d ? View3d : null));
             await js.InvokeVoidAsync("localStorage.setItem", Key, json);
         }
         catch { }

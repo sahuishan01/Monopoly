@@ -1,0 +1,79 @@
+@implements IDisposable
+@* Collects the last 100 played events as sentences (always, so nothing is missed while closed) and
+   shows them newest-first in a drawer when Open. *@
+@if (Open)
+{
+  <Sheet Kind="drawer" LabelId="log-title" OnClose="OnClose" Class="logsheet">
+    <header class="sheet-head">
+      <h2 id="log-title">Game log</h2>
+      <button class="icon-btn" aria-label="Close log" @onclick="OnClose">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+      </button>
+    </header>
+    @if (lines.Count == 0)
+    {
+      <p class="muted sheet-empty">Nothing has happened yet.</p>
+    }
+    else
+    {
+      <ol class="log" aria-label="Most recent first">
+        @for (int i = lines.Count - 1; i >= 0; i--)
+        {
+          var (id, line, round) = lines[i];
+          <li @key="id" class="tone-@line.Tone.ToString().ToLowerInvariant()">
+            <span class="pdot @(line.Actor < 0 ? "none" : "")" style="--o:@Math.Max(0, line.Actor)" aria-hidden="true"></span>
+            <span class="log-text">@line.Text</span>
+            <span class="log-round" title="Round">R@(round)</span>
+          </li>
+        }
+      </ol>
+    }
+  </Sheet>
+}
+
+@code {
+    [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    public const int Capacity = 100;
+    private readonly List<(int Id, EventLine Line, int Round)> lines = new();
+    private GameSession? subscribed;
+    private int nextId;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(subscribed, Game)) return;
+        if (subscribed != null) { subscribed.EventPlayed -= OnEvent; subscribed.Client.ChatReceived -= OnChat; }
+        subscribed = Game;
+        lines.Clear();
+        Game.EventPlayed += OnEvent;
+        Game.Client.ChatReceived += OnChat;
+    }
+
+    private void Add(EventLine line, int round)
+    {
+        lines.Add((++nextId, line, round));
+        if (lines.Count > Capacity) lines.RemoveRange(0, lines.Count - Capacity);
+        if (Open) _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void OnEvent(GameEvent e, GameState after)
+    {
+        if (EventText.Describe(e, after) is { } line) Add(line, after.Round);
+    }
+
+    private void OnChat(int seat, int preset)
+    {
+        var s = Game.Display;
+        if (s == null || preset < 0 || preset >= ChatPresets.Lines.Length) return;
+        string who = seat >= 0 && seat < s.Players.Count ? s.Players[seat].Name : "Someone";
+        Add(new EventLine($"{who}: “{ChatPresets.Lines[preset]}”", seat, EventTone.Neutral, false), s.Round);
+    }
+
+    public void Dispose()
+    {
+        if (subscribed != null) { subscribed.EventPlayed -= OnEvent; subscribed.Client.ChatReceived -= OnChat; }
+        subscribed = null;
+    }
+}

@@ -1,0 +1,65 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+@* Modal surface shared by the property card, settings and event log: a flip-in card or side drawer on
+   desktop, a bottom sheet (swipe down to close) on narrow screens. Focus is trapped while open and
+   restored on close. Escape is routed by the page through keys.js. *@
+<div class="sheet-root sheet-@Kind">
+  <div class="sheet-backdrop" @onclick="Close"></div>
+  <section @ref="panel" class="sheet-panel @Class" role="dialog" aria-modal="true" aria-labelledby="@LabelId" tabindex="-1" style="@Style">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    @ChildContent
+  </section>
+</div>
+
+@code {
+    /// <summary>"card" (centred flip-in) or "drawer" (slides from the right).</summary>
+    [Parameter] public string Kind { get; set; } = "card";
+    [Parameter, EditorRequired] public string LabelId { get; set; } = "";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private ElementReference panel;
+    private IJSObjectReference? module, trap, swipe;
+    private DotNetObjectReference<Sheet>? self;
+    private bool disposed;
+
+    [JSInvokable] public Task Swiped() => Close();
+    private Task Close() => OnClose.InvokeAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/ui.js");
+            if (disposed) return;
+            trap = await module.InvokeAsync<IJSObjectReference>("trap", panel);
+            if (disposed) { await Release(); return; }
+            swipe = await module.InvokeAsync<IJSObjectReference>("swipe", panel, self = DotNetObjectReference.Create(this), nameof(Swiped));
+            if (disposed) await Release();
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
+    }
+
+    private async Task Release()
+    {
+        var t = trap; var s = swipe; var m = module;
+        trap = swipe = module = null;
+        try
+        {
+            if (s != null) { await s.InvokeVoidAsync("dispose"); await s.DisposeAsync(); }
+            if (t != null) { await t.InvokeVoidAsync("release"); await t.DisposeAsync(); }
+            if (m != null) await m.DisposeAsync();
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        disposed = true;
+        await Release();
+        self?.Dispose();
+    }
+}

@@ -1,36 +1,68 @@
 @page "/play/{Code}"
-@implements IDisposable
+@implements IAsyncDisposable
 @inject Session Session
 @inject NavigationManager Nav
 @inject IJSRuntime Js
+@inject SettingsService Settings
 
 <main class="play">
   @if (game?.Display != null && game.Board != null)
   {
     <div class="stage">
-      <button class="ghost" @onclick="ToggleView">@(use3d ? "2D" : "3D")</button>
-      @if (use3d) { <Board3D Game="game" OnUnavailable="Fallback" OnTileClick="OnTile" /> }
-      else { <Board2D State="game.Display" Board="game.Board" Game="game" OnTileClick="OnTile" /> }
+      <div class="board-wrap">
+        @if (viewReady)
+        {
+          @if (Use3d) { <Board3D Game="game" OnUnavailable="Fallback" OnTileClick="OnTile" /> }
+          else { <Board2D State="game.Display" Board="game.Board" Game="game" OnTileClick="OnTile" /> }
+        }
+        <div class="board-tools" role="toolbar" aria-label="Board">
+          <div class="seg small" role="radiogroup" aria-label="Board view">
+            <button role="radio" aria-checked="@(!Use3d ? "true" : "false")" class="@(!Use3d ? "on" : "")" @onclick="() => SetView(false)">2D</button>
+            <button role="radio" aria-checked="@(Use3d ? "true" : "false")" class="@(Use3d ? "on" : "")" @onclick="() => SetView(true)">3D</button>
+          </div>
+          <button class="icon-btn tool" aria-label="Game log (L)" title="Game log (L)" @onclick="ToggleLog">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12" /><circle cx="4" cy="6" r="1" /><circle cx="4" cy="12" r="1" /><circle cx="4" cy="18" r="1" /></svg>
+          </button>
+          <button class="icon-btn tool" aria-label="Settings" title="Settings" @onclick="OpenSettings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+          </button>
+        </div>
+        <TurnBanner Game="game" />
+      </div>
     </div>
     <div class="side">
       <Hud Game="game" />
-      @if (selected is int sel)
-      {
-        <PropertyPanel Game="game" Tile="sel" />
-      }
       <TradeDialog Game="game" />
-      <AudioBridge Game="game" />
     </div>
+    <Toasts Game="game" />
+    <EventLog Game="game" Open="logOpen" OnClose="CloseLog" />
+    @if (selected is int sel)
+    {
+      <PropertyCard @key="sel" Game="game" Tile="sel" OnClose="CloseCard" />
+    }
+    @if (settingsOpen)
+    {
+      <SettingsSheet OnClose="CloseSettings" />
+    }
+    <AudioBridge Game="game" />
   }
   else if (game?.UpdateRequired != null) { <p class="error" role="alert">This version is out of date. Please refresh.</p> }
   else if (error != null) { <p class="error" role="alert">@error</p> }
-  else { <p>Loading match…</p> }
+  else { <p class="boot">Loading match…</p> }
 </main>
 
 @code {
     [Parameter] public string Code { get; set; } = "";
     private GameSession? game;
     private string? error;
+    private int? selected;
+    private bool autoCard;          // the open card was opened by a purchase offer and closes when the offer ends
+    private bool settingsOpen, logOpen;
+    private bool viewReady, glFailed, disposed;
+    private IJSObjectReference? keys, keysModule;
+    private DotNetObjectReference<Play>? self;
+
+    private bool Use3d => Settings.View3d && !glFailed;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -38,6 +70,7 @@
         Detach();
         game = null;
         error = null;
+        selected = null;
         try
         {
             game = await GameLoop.OpenAsync(Session, Nav, Code);
@@ -49,6 +82,7 @@
             else { error = "Could not join this match."; return; }
         }
         game.Changed += OnChanged;
+        game.EventPlayed += OnEvent;
         game.Client.ReturnedToLobby += BackToLobby;
     }
 
@@ -56,32 +90,139 @@
     {
         if (game == null) return;
         game.Changed -= OnChanged;
+        game.EventPlayed -= OnEvent;
         game.Client.ReturnedToLobby -= BackToLobby;
     }
 
     private void BackToLobby() => InvokeAsync(() => Nav.NavigateTo("/room/" + Code));
-    private void OnChanged() => InvokeAsync(StateHasChanged);
-    private int? selected;
-    private bool use3d;
+
+    private void OnChanged() => InvokeAsync(() =>
+    {
+        // A card opened for a purchase offer closes itself once the offer is resolved.
+        if (autoCard && selected is int t && TurnActions.OfferedTile(game?.Display) != t) { selected = null; autoCard = false; }
+        StateHasChanged();
+    });
+
+    private void OnEvent(GameEvent e, GameState after)
+    {
+        // Open the deed card for the tile the local player may now buy (not during a resync burst).
+        // PurchaseOffered plays before the phase change, so key off the BuyDecision phase instead.
+        if (e is PhaseChanged { Phase: TurnPhase.BuyDecision } && game != null && TurnActions.CanBuy(after, TurnActions.Me(game.Client.Seats))
+            && game.PendingEvents <= 12 && !settingsOpen && !logOpen && selected == null)
+        {
+            int tile = TurnActions.OfferedTile(after);
+            _ = InvokeAsync(() => { selected = tile; autoCard = true; StateHasChanged(); });
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
+        await Settings.EnsureLoadedAsync();
+        if (disposed) return;
+        Settings.Changed += OnSettings;
         try
         {
-            if (await Js.InvokeAsync<string?>("localStorage.getItem", "view3d") == "1") { use3d = true; StateHasChanged(); }
+            var ui = await Js.InvokeAsync<IJSObjectReference>("import", "./js/ui.js");
+            if (!Settings.HasView3d)
+            {
+                // Migrate the pre-settings "view3d" flag, else default to 3D when WebGL works and quality is not Low.
+                string? legacy = null;
+                try { legacy = await Js.InvokeAsync<string?>("localStorage.getItem", "view3d"); } catch (JSException) { }
+                if (legacy is "1" or "0")
+                {
+                    Settings.View3d = legacy == "1";
+                    Settings.HasView3d = true;
+                    await Settings.SaveAsync();
+                    try { await Js.InvokeVoidAsync("localStorage.removeItem", "view3d"); } catch (JSException) { }
+                }
+                else Settings.View3d = Settings.Quality != "low" && await ui.InvokeAsync<bool>("webgl");
+            }
+            await ui.DisposeAsync();
+            if (disposed) return;
+            keysModule = await Js.InvokeAsync<IJSObjectReference>("import", "./js/keys.js");
+            if (disposed) { await keysModule.DisposeAsync(); keysModule = null; return; }
+            keys = await keysModule.InvokeAsync<IJSObjectReference>("attach", self = DotNetObjectReference.Create(this));
+            if (disposed) await ReleaseKeys();
         }
-        catch { }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
+        viewReady = true;
+        StateHasChanged();
     }
 
-    private async Task ToggleView()
+    private void OnSettings() => InvokeAsync(StateHasChanged);
+
+    [JSInvokable]
+    public async Task OnShortcut(string action)
     {
-        use3d = !use3d;
-        try { await Js.InvokeVoidAsync("localStorage.setItem", "view3d", use3d ? "1" : "0"); } catch { }
+        var s = game?.Display;
+        if (game == null || s == null) return;
+        int me = TurnActions.Me(game.Client.Seats);
+        switch (action)
+        {
+            case "roll": if (TurnActions.CanRoll(s, me)) SendOnce(action, new RollDiceCommand(me)); break;
+            case "buy": if (TurnActions.CanBuy(s, me)) SendOnce(action, new BuyPropertyCommand(me)); break;
+            case "end": if (TurnActions.CanEndTurn(s, me)) SendOnce(action, new EndTurnCommand(me)); break;
+            case "mute":
+                Settings.Muted = !Settings.Muted;
+                await Settings.SaveAsync();
+                break;
+            case "log": logOpen = !logOpen; break;
+            case "escape":
+                if (selected != null) CloseCard();
+                else if (settingsOpen) settingsOpen = false;
+                else if (logOpen) logOpen = false;
+                break;
+        }
+        StateHasChanged();
     }
 
-    private Task Fallback() { use3d = false; return InvokeAsync(StateHasChanged); }
-    private Task OnTile(int tile) { selected = tile; return Task.CompletedTask; }
+    // The display state lags the host while events animate, so a repeated key press would resend a command the
+    // host already handled. Send each shortcut once per displayed state version (retry allowed after 2 s).
+    private (string Action, int Version, DateTime At) lastShortcut;
+    private void SendOnce(string action, GameCommand command)
+    {
+        int version = game!.Display!.Version;
+        if (lastShortcut.Action == action && lastShortcut.Version == version && DateTime.UtcNow - lastShortcut.At < TimeSpan.FromSeconds(2)) return;
+        lastShortcut = (action, version, DateTime.UtcNow);
+        game.Client.SendCommand(command);
+    }
 
-    public void Dispose() => Detach();
+    private async Task SetView(bool view3d)
+    {
+        if (view3d) glFailed = false;   // an explicit choice retries WebGL
+        Settings.View3d = view3d;
+        Settings.HasView3d = true;
+        await Settings.SaveAsync();
+    }
+
+    // WebGL could not start: show 2D for this session without overwriting the saved preference.
+    private Task Fallback() { glFailed = true; return InvokeAsync(StateHasChanged); }
+    private Task OnTile(int tile) { selected = tile; autoCard = false; settingsOpen = false; logOpen = false; StateHasChanged(); return Task.CompletedTask; }
+    private void CloseCard() { selected = null; autoCard = false; }
+    private void ToggleLog() { logOpen = !logOpen; if (logOpen) { settingsOpen = false; selected = null; } }
+    private void CloseLog() => logOpen = false;
+    private void OpenSettings() { settingsOpen = true; logOpen = false; selected = null; }
+    private void CloseSettings() => settingsOpen = false;
+
+    private async Task ReleaseKeys()
+    {
+        var k = keys; var m = keysModule;
+        keys = keysModule = null;
+        try
+        {
+            if (k != null) { await k.InvokeVoidAsync("dispose"); await k.DisposeAsync(); }
+            if (m != null) await m.DisposeAsync();
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        disposed = true;
+        Detach();
+        Settings.Changed -= OnSettings;
+        await ReleaseKeys();
+        self?.Dispose();
+    }
 }

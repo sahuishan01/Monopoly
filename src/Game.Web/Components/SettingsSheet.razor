@@ -1,0 +1,151 @@
+@implements IDisposable
+@inject SettingsService Settings
+@inject HttpClient Http
+@* In-game settings: theme (applied live), graphics quality, audio, motion and 2D/3D. Every change is saved at once. *@
+<Sheet Kind="drawer" LabelId="set-title" OnClose="OnClose" Class="setsheet">
+  <header class="sheet-head">
+    <h2 id="set-title">Settings</h2>
+    <button class="icon-btn" aria-label="Close settings" @onclick="OnClose">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+    </button>
+  </header>
+
+  <fieldset class="set-group">
+    <legend>Theme</legend>
+    <div class="swatches" role="radiogroup" aria-label="Theme">
+      @foreach (var t in themes)
+      {
+        bool on = Settings.Theme == t.Id;
+        <button role="radio" aria-checked="@(on ? "true" : "false")" class="swatch @(on ? "on" : "")"
+                style="--sw-bg:@t.Bg;--sw-panel:@t.Panel;--sw-accent:@t.Accent;--sw-glow:@t.Glow"
+                @onclick="() => PickTheme(t.Id)">
+          <span class="sw-art" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="sw-name">@t.Name</span>
+        </button>
+      }
+    </div>
+  </fieldset>
+
+  <fieldset class="set-group">
+    <legend>Board</legend>
+    <div class="seg" role="radiogroup" aria-label="Board view">
+      <button role="radio" aria-checked="@(!Settings.View3d ? "true" : "false")" class="@(!Settings.View3d ? "on" : "")" @onclick="() => SetView(false)">2D</button>
+      <button role="radio" aria-checked="@(Settings.View3d ? "true" : "false")" class="@(Settings.View3d ? "on" : "")" @onclick="() => SetView(true)">3D</button>
+    </div>
+    <div class="seg" role="radiogroup" aria-label="Graphics quality">
+      @foreach (var q in new[] { "auto", "high", "low" })
+      {
+        string id = q;
+        <button role="radio" aria-checked="@(Settings.Quality == id ? "true" : "false")" class="@(Settings.Quality == id ? "on" : "")" @onclick="() => SetQuality(id)">@(char.ToUpperInvariant(id[0]) + id[1..])</button>
+      }
+    </div>
+    <label class="check">
+      <input type="checkbox" checked="@Settings.ReduceMotion" @onchange="SetReduce" />
+      <span>Reduce motion</span>
+    </label>
+  </fieldset>
+
+  <fieldset class="set-group">
+    <legend>Sound</legend>
+    <label class="check">
+      <input type="checkbox" checked="@Settings.Muted" @onchange="SetMuted" />
+      <span>Mute all sound</span>
+    </label>
+    @Slider("vol-master", "Master volume", Settings.Master, v => Settings.Master = v)
+    @Slider("vol-sfx", "Effects", Settings.Sfx, v => Settings.Sfx = v)
+    @Slider("vol-music", "Music", Settings.Music, v => Settings.Music = v)
+  </fieldset>
+
+  <fieldset class="set-group">
+    <legend>Keyboard</legend>
+    <dl class="keys">
+      <div><dt><kbd>Space</kbd></dt><dd>Roll dice</dd></div>
+      <div><dt><kbd>B</kbd></dt><dd>Buy property</dd></div>
+      <div><dt><kbd>E</kbd></dt><dd>End turn</dd></div>
+      <div><dt><kbd>M</kbd></dt><dd>Mute / unmute</dd></div>
+      <div><dt><kbd>L</kbd></dt><dd>Game log</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd>Close dialog</dd></div>
+    </dl>
+  </fieldset>
+</Sheet>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private sealed record ThemeInfo(string Id, string Name, string Bg, string Panel, string Accent, string Glow);
+    private List<ThemeInfo> themes = ThemeCatalog.Ids.Select(id => new ThemeInfo(id, Title(id), "#111", "#222", "#888", "#aaa")).ToList();
+    private static List<ThemeInfo>? cache;
+
+    private static string Title(string id) => string.Join(' ', id.Split('-').Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+
+    private void OnSettings() => _ = InvokeAsync(StateHasChanged);
+    public void Dispose() => Settings.Changed -= OnSettings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Settings.Changed += OnSettings;
+        if (cache != null) { themes = cache; return; }
+        var list = new List<ThemeInfo>();
+        foreach (var id in ThemeCatalog.Ids)
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(await Http.GetStringAsync($"themes/{id}.json"));
+                var r = doc.RootElement; var css = r.GetProperty("css");
+                string C(string k) => css.TryGetProperty(k, out var v) ? v.GetString() ?? "#888" : "#888";
+                list.Add(new ThemeInfo(id, r.TryGetProperty("name", out var n) ? n.GetString() ?? Title(id) : Title(id), C("--bg"), C("--panel"), C("--accent"), C("--glow")));
+            }
+            catch { list.Add(themes.First(t => t.Id == id)); }
+        }
+        themes = cache = list;
+    }
+
+    private RenderFragment Slider(string id, string label, double value, Action<double> set) => __builder =>
+    {
+        int pct = (int)Math.Round(value * 100);
+        <div class="slider">
+          <label for="@id">@label</label>
+          <input id="@id" type="range" min="0" max="100" step="5" value="@pct" disabled="@Settings.Muted"
+                 aria-valuetext="@(pct + " percent")" @oninput="e => SetVolume(e, set)" />
+          <output for="@id">@pct%</output>
+        </div>
+    };
+
+    private async Task SetVolume(ChangeEventArgs e, Action<double> set)
+    {
+        if (!double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) return;
+        set(Math.Clamp(v / 100, 0, 1));
+        await Settings.SaveAsync();
+    }
+
+    private async Task PickTheme(string id)
+    {
+        await Settings.SetThemeAsync(id);
+        await Settings.SaveAsync();
+    }
+
+    private async Task SetView(bool view3d)
+    {
+        Settings.View3d = view3d;
+        Settings.HasView3d = true;
+        await Settings.SaveAsync();
+    }
+
+    private async Task SetQuality(string q)
+    {
+        Settings.Quality = q;
+        await Settings.SaveAsync();
+    }
+
+    private async Task SetReduce(ChangeEventArgs e)
+    {
+        Settings.ReduceMotion = e.Value is true;
+        await Settings.SaveAsync();
+    }
+
+    private async Task SetMuted(ChangeEventArgs e)
+    {
+        Settings.Muted = e.Value is true;
+        await Settings.SaveAsync();
+    }
+}

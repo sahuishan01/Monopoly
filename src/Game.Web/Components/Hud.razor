@@ -3,83 +3,147 @@
 @{
     var s = Game.Display!;
     // Limitation: only the first seat is used (no hot-seat multi-seat control); spectators have no seat.
-    int me = Game.Client.Seats.Length > 0 ? Game.Client.Seats[0] : -1;
+    int me = TurnActions.Me(Game.Client.Seats);
     bool myTurn = me >= 0 && s.CurrentPlayer == me;
     var debt = s.Phase == TurnPhase.DebtResolution && s.Debts.Count > 0 ? s.Debts[0] : null;
     bool iAmDebtor = me >= 0 && debt != null && debt.Debtor == me;
-    string cur = s.Players[s.CurrentPlayer].Name;
+    var curP = s.CurrentPlayer >= 0 && s.CurrentPlayer < s.Players.Count ? s.Players[s.CurrentPlayer] : null;
+    string cur = curP?.Name ?? "";
+    string currency = Board.Currency;
 }
-<aside class="hud">
-  <button class="ghost mute" aria-pressed="@Settings.Muted" aria-label="@(Settings.Muted ? "Unmute sound" : "Mute sound")" @onclick="ToggleMute">@(Settings.Muted ? "Sound off" : "Sound on")</button>
-  <h2>@(myTurn ? "Your turn" : cur + "'s turn")</h2>
+<aside class="hud glass" aria-label="Match">
+  <header class="hud-head">
+    <div class="turn-chip @(myTurn ? "mine" : "")" style="--o:@s.CurrentPlayer">
+      <span class="pdot" aria-hidden="true"></span>
+      <h2>@(s.IsOver ? "Game over" : myTurn ? "Your turn" : cur + "'s turn")</h2>
+    </div>
+    <span class="round-chip">Round @s.Round</span>
+    <button class="icon-btn mute" aria-pressed="@(Settings.Muted ? "true" : "false")" aria-label="@(Settings.Muted ? "Unmute sound" : "Mute sound")" title="@(Settings.Muted ? "Sound off" : "Sound on") (M)" @onclick="ToggleMute">
+      @if (Settings.Muted)
+      {
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" /><path d="M17 9l5 6M22 9l-5 6" /></svg>
+      }
+      else
+      {
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" /><path d="M17 8.5a5 5 0 0 1 0 7M19.5 6a8.5 8.5 0 0 1 0 12" /></svg>
+      }
+    </button>
+  </header>
+
   <ul class="players">
     @foreach (var p in s.Players)
     {
-      <li class="@(p.Id == s.CurrentPlayer ? "cur" : "") @(p.Bankrupt ? "out" : "")">
-        <span>@p.Name @(p.IsBot ? "🤖" : "")</span><b>@Board.Currency@p.Money</b>
+      <li class="player @(p.Id == s.CurrentPlayer ? "cur" : "") @(p.Bankrupt ? "out" : "") @(p.Id == me ? "me" : "")" style="--o:@p.Id">
+        <span class="avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="@Board2D.PawnPath(p.Token)" /></svg></span>
+        <span class="pname">
+          <span class="nm">@p.Name</span>
+          <span class="tags">
+            @if (p.Id == me) { <span class="tag you">You</span> }
+            @if (p.IsBot) { <span class="tag">Bot</span> }
+            @if (p.InJail) { <span class="tag bad">Jail</span> }
+            @if (p.Bankrupt) { <span class="tag bad">Out</span> }
+          </span>
+        </span>
+        <Money Value="p.Money" Currency="@currency" />
       </li>
     }
   </ul>
-  @if (myTurn)
+
+  @if (myTurn && !s.IsOver)
   {
-    <div class="actions">
+    <div class="actions primary-actions">
       @switch (s.Phase)
       {
         case TurnPhase.PreRoll:
-          <button @onclick="() => Send(new RollDiceCommand(me))">Roll dice</button>
+          <button class="primary big" @onclick="() => Send(new RollDiceCommand(me))">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" /><circle cx="8.5" cy="8.5" r="1.3" /><circle cx="15.5" cy="15.5" r="1.3" /><circle cx="12" cy="12" r="1.3" /></svg>
+            <span>Roll dice</span><kbd aria-hidden="true">Space</kbd>
+          </button>
           @if (s.Players[me].InJail)
           {
-            <button @onclick="() => Send(new PayJailFineCommand(me))">Pay fine</button>
-            @if (s.Players[me].JailCards > 0) { <button @onclick="() => Send(new UseJailCardCommand(me))">Use card</button> }
+            <button class="ghost" @onclick="() => Send(new PayJailFineCommand(me))">Pay fine</button>
+            @if (s.Players[me].JailCards > 0) { <button class="ghost" @onclick="() => Send(new UseJailCardCommand(me))">Use card</button> }
           }
           break;
         case TurnPhase.BuyDecision:
-          <button @onclick="() => Send(new BuyPropertyCommand(me))">Buy</button>
+          int offer = TurnActions.OfferedTile(s);
+          <p class="offer">@(offer >= 0 && offer < Board.Tiles.Count ? Board.Tiles[offer].Name : "This property") is for sale</p>
+          <button class="primary big" @onclick="() => Send(new BuyPropertyCommand(me))"><span>Buy</span><kbd aria-hidden="true">B</kbd></button>
           <button class="ghost" @onclick="() => Send(new DeclinePropertyCommand(me))">Pass</button>
           break;
         case TurnPhase.PostRoll:
-          <button @onclick="() => Send(new EndTurnCommand(me))">End turn</button>
+          <button class="primary big" @onclick="() => Send(new EndTurnCommand(me))"><span>End turn</span><kbd aria-hidden="true">E</kbd></button>
           break;
       }
     </div>
   }
+  else if (!s.IsOver && s.Phase != TurnPhase.Auction && debt == null)
+  {
+    <p class="waiting"><span class="pulse" style="--o:@s.CurrentPlayer" aria-hidden="true"></span>Waiting for @cur…</p>
+  }
+
   @if (debt != null)
   {
-    <p class="error">@s.Players[debt.Debtor].Name owes @Board.Currency@debt.Amount@(debt.Creditor >= 0 ? " to " + s.Players[debt.Creditor].Name : " to the bank")</p>
-    @if (iAmDebtor)
-    {
-      <p>Select your properties to mortgage or sell; the debt settles automatically once you have enough cash.</p>
-      <div class="actions">
-        <button class="ghost" @onclick="() => Send(new DeclareBankruptcyCommand(me))">Declare bankruptcy</button>
-      </div>
-    }
-  }
-  @if (s.Phase == TurnPhase.Auction && s.Auction is { } auc && me >= 0 && !s.Players[me].Bankrupt
-       && auc.Participants.Contains(me) && !auc.Passed.Contains(me))
-  {
-    <div class="actions">
-      <input type="number" @bind="bid" @bind:event="oninput" min="1" @onkeydown="OnBidKey" />
-      <button @onclick="PlaceBid">Bid</button>
-      <button class="ghost" @onclick="() => Send(new PassAuctionCommand(me))">Pass</button>
+    <div class="notice-box bad">
+      <p>@s.Players[debt.Debtor].Name owes @currency@debt.Amount@(debt.Creditor >= 0 ? " to " + s.Players[debt.Creditor].Name : " to the bank")</p>
+      @if (iAmDebtor)
+      {
+        <p class="muted">Open your properties to mortgage or sell; the debt settles automatically once you have enough cash.</p>
+        <div class="actions">
+          <button class="ghost danger" @onclick="() => Send(new DeclareBankruptcyCommand(me))">Declare bankruptcy</button>
+        </div>
+      }
     </div>
   }
-  @if (message != null) { <p class="error">@message</p> }
+
+  @if (s.Phase == TurnPhase.Auction && s.Auction is { } auc)
+  {
+    <div class="auction">
+      <div class="auc-head">
+        <span class="kicker">Auction</span>
+        <strong>@(auc.Tile >= 0 && auc.Tile < Board.Tiles.Count ? Board.Tiles[auc.Tile].Name : "Property")</strong>
+      </div>
+      <p class="auc-bid">
+        @if (auc.HighBidder >= 0 && auc.HighBidder < s.Players.Count)
+        {
+          <span class="pdot" style="--o:@auc.HighBidder" aria-hidden="true"></span>@s.Players[auc.HighBidder].Name<span class="muted">&nbsp;leads with&nbsp;</span><b>@currency@auc.HighBid</b>
+        }
+        else { <span class="muted">No bids yet</span> }
+      </p>
+      @if (me >= 0 && !s.Players[me].Bankrupt && auc.Participants.Contains(me) && !auc.Passed.Contains(me))
+      {
+        <div class="actions bid-row">
+          <label class="field compact" for="bid-input">Your bid
+            <input id="bid-input" type="number" @bind="bid" @bind:event="oninput" min="1" @onkeydown="OnBidKey" />
+          </label>
+          <button class="primary" @onclick="PlaceBid">Bid</button>
+          <button class="ghost" @onclick="() => Send(new PassAuctionCommand(me))">Pass</button>
+        </div>
+      }
+    </div>
+  }
+
   @if (s.IsOver)
   {
-    <p class="winner">Game over</p>
-    @if (me >= 0) {
-    <button @onclick="() => Game.Client.Send(new RequestRematch())">Rematch</button>
-    }
+    <div class="winner">
+      <span class="kicker">Game over</span>
+      <strong>@(s.Winners.Count > 0 ? string.Join(" & ", s.Winners.Where(w => w >= 0 && w < s.Players.Count).Select(w => s.Players[w].Name)) + " wins!" : "Match finished")</strong>
+      @if (me >= 0)
+      {
+        <button class="primary" @onclick="() => Game.Client.Send(new RequestRematch())">Rematch</button>
+      }
+    </div>
   }
+
   @if (me >= 0)
   {
-  <div class="actions chat">
-    @for (int preset = 0; preset < ChatShown; preset++)
-    {
-      int id = preset;
-      <button class="ghost" @onclick="() => Game.Client.Chat(id)">@ChatPresets.Lines[id]</button>
-    }
-  </div>
+    <div class="chat" role="group" aria-label="Quick chat">
+      @for (int preset = 0; preset < ChatShown; preset++)
+      {
+        int id = preset;
+        <button class="chip" @onclick="() => Game.Client.Chat(id)">@ChatPresets.Lines[id]</button>
+      }
+    </div>
   }
 </aside>
 
@@ -87,33 +151,20 @@
     [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
     private BoardDefinition Board => Game.Board!;
     private int bid = 10;
-    private string? message;
     // First 6 of ChatPresets.Lines are shown; the full list has 14.
     private const int ChatShown = 6;
-    private GameSession? subscribed;
     private int lastHigh = -1;
+    private bool settingsHooked;
 
     protected override void OnParametersSet()
     {
         var auc = Game.Display?.Auction;
         if (auc != null && auc.HighBid != lastHigh) { lastHigh = auc.HighBid; bid = Math.Max(1, auc.HighBid + 1); }
         else if (auc == null) lastHigh = -1;
-        if (ReferenceEquals(subscribed, Game)) return;
-        if (subscribed != null) subscribed.Client.CommandFailed -= OnFailed;
-        subscribed = Game;
         if (!settingsHooked) { Settings.Changed += OnSettingsChanged; settingsHooked = true; }
-        Game.Client.CommandFailed -= OnFailed;
-        Game.Client.CommandFailed += OnFailed;
     }
 
-    private bool settingsHooked;
     private void OnSettingsChanged() => InvokeAsync(StateHasChanged);
-
-    private void OnFailed(string id, string reason)
-    {
-        message = reason;
-        InvokeAsync(StateHasChanged);
-    }
 
     private async Task ToggleMute()
     {
@@ -128,21 +179,14 @@
 
     private void PlaceBid()
     {
-        int me = Game.Client.Seats.Length > 0 ? Game.Client.Seats[0] : -1;
+        int me = TurnActions.Me(Game.Client.Seats);
         if (me < 0) return;
         if (bid < 1) bid = 1;
         Send(new PlaceBidCommand(me, bid));
     }
 
-    private void Send(GameCommand command)
-    {
-        message = null;
-        Game.Client.SendCommand(command);
-    }
+    // Rejections surface as toasts (Toasts listens to CommandFailed).
+    private void Send(GameCommand command) => Game.Client.SendCommand(command);
 
-    public void Dispose()
-    {
-        if (subscribed != null) subscribed.Client.CommandFailed -= OnFailed;
-        Settings.Changed -= OnSettingsChanged;
-    }
+    public void Dispose() => Settings.Changed -= OnSettingsChanged;
 }

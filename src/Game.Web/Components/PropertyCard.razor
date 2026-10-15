@@ -1,0 +1,173 @@
+@* Property card for a clicked tile: deed-style rent table, owner and state, plus the actions the
+   PropertyPanel and HUD already offered (buy/pass when offered, build/sell, mortgage/unmortgage). *@
+@{
+    var s = Game.Display!;
+    var board = Game.Board!;
+    int me = TurnActions.Me(Game.Client.Seats);
+    var def = Tile >= 0 && Tile < board.Tiles.Count ? board.Tiles[Tile] : null;
+}
+@if (def != null)
+{
+    var prop = s.Property(Tile);
+    bool mine = me >= 0 && prop != null && prop.Owner == me;
+    bool offered = TurnActions.CanBuy(s, me) && TurnActions.OfferedTile(s) == Tile;
+    int di = board.DistrictIndex(def.District);
+    var district = di >= 0 ? board.Districts[di] : null;
+    string color = district?.Color ?? "var(--accent)";
+    var owner = prop != null && prop.Owner >= 0 && prop.Owner < s.Players.Count ? s.Players[prop.Owner] : null;
+    string cur = board.Currency;
+    <Sheet Kind="card" LabelId="pc-title" OnClose="OnClose" Class="pcard" Style="@("--d:" + color)">
+      <header class="pc-head">
+        <span class="pc-ico" aria-hidden="true">@(def.Type == TileType.Street ? StreetIcon : Board2D.Icon(def.Type))</span>
+        <div class="pc-titles">
+          <span class="pc-kicker">@(district?.Name ?? Kind(def.Type))</span>
+          <h2 id="pc-title">@def.Name</h2>
+        </div>
+        <button class="icon-btn pc-close" aria-label="Close" @onclick="OnClose">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </button>
+      </header>
+
+      <div class="pc-body">
+        <dl class="pc-facts">
+          @if (def.Price > 0)
+          {
+            <div><dt>Price</dt><dd>@cur@Calc.PurchasePrice(s, Tile)</dd></div>
+          }
+          @if (prop != null)
+          {
+            <div><dt>Owner</dt><dd>
+              @if (owner != null) { <span class="pdot" style="--o:@owner.Id"></span>@owner.Name }
+              else { <span class="muted">Bank</span> }
+            </dd></div>
+            @if (def.Type == TileType.Street)
+            {
+              <div><dt>Buildings</dt><dd>@(prop.Level >= 5 ? "Tower" : prop.Level == 0 ? "None" : prop.Level + (prop.Level == 1 ? " house" : " houses"))</dd></div>
+            }
+            <div><dt>Mortgage</dt><dd>@(prop.Mortgaged ? "Mortgaged" : cur + Calc.MortgageValue(s, Tile).ToString())</dd></div>
+          }
+          @if (def.Type == TileType.Tax)
+          {
+            <div><dt>Tax</dt><dd>@cur@Calc.TaxAmount(s, Tile)</dd></div>
+          }
+        </dl>
+
+        @if (def.Type == TileType.Street && def.Rents.Length > 0)
+        {
+          int level = prop?.Owner >= 0 && prop?.Mortgaged == false ? prop.Level : -1;
+          bool set = prop != null && prop.Owner >= 0 && Calc.OwnsDistrict(s, prop.Owner, def.District);
+          <table class="pc-rents">
+            <caption>Rent</caption>
+            <tbody>
+              <tr class="@(level == 0 && !set ? "on" : "")"><th scope="row">Base</th><td>@cur@def.Rents[0]</td></tr>
+              <tr class="@(level == 0 && set ? "on" : "")"><th scope="row">Full district</th><td>@cur@(def.Rents[0] * 2)</td></tr>
+              @for (int i = 1; i < def.Rents.Length; i++)
+              {
+                int n = i;
+                <tr class="@(level == n ? "on" : "")">
+                  <th scope="row">@(n >= 5 ? "Tower" : n + (n == 1 ? " house" : " houses"))</th>
+                  <td>@cur@def.Rents[n]</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (def.HouseCost > 0)
+          {
+            <p class="pc-note">Each building costs @cur@(me >= 0 ? Calc.BuildCost(s, Tile, me, DevelopmentType.Residential) : def.HouseCost)</p>
+          }
+        }
+        else if (def.Type == TileType.Transit)
+        {
+          int owned = owner != null ? Calc.CountOwned(s, owner.Id, TileType.Transit) : 0;
+          <table class="pc-rents">
+            <caption>Rent by lines owned</caption>
+            <tbody>
+              @for (int i = 0; i < board.TransitRents.Length; i++)
+              {
+                <tr class="@(owned == i + 1 && prop?.Mortgaged == false ? "on" : "")"><th scope="row">@(i + 1) owned</th><td>@cur@board.TransitRents[i]</td></tr>
+              }
+            </tbody>
+          </table>
+        }
+        else if (def.Type == TileType.Utility)
+        {
+          int owned = owner != null ? Calc.CountOwned(s, owner.Id, TileType.Utility) : 0;
+          <table class="pc-rents">
+            <caption>Rent by utilities owned</caption>
+            <tbody>
+              @for (int i = 0; i < board.UtilityMultipliers.Length; i++)
+              {
+                <tr class="@(owned == i + 1 && prop?.Mortgaged == false ? "on" : "")"><th scope="row">@(i + 1) owned</th><td>@board.UtilityMultipliers[i]× dice</td></tr>
+              }
+            </tbody>
+          </table>
+        }
+        else if (prop == null)
+        {
+          <p class="pc-note">@About(def.Type)</p>
+        }
+
+        @if (prop?.Mortgaged == true) { <p class="pc-flag">Mortgaged — no rent is collected.</p> }
+      </div>
+
+      @if (offered || mine)
+      {
+        <footer class="pc-actions actions">
+          @if (offered)
+          {
+            <button class="primary" data-autofocus @onclick="() => Send(new BuyPropertyCommand(me))">Buy for @cur@Calc.PurchasePrice(s, Tile)</button>
+            <button class="ghost" @onclick="() => Send(new DeclinePropertyCommand(me))">Pass</button>
+          }
+          else if (mine && prop != null)
+          {
+            @if (!prop.Mortgaged && prop.Level < 5 && def.Type == TileType.Street)
+            {
+              <button @onclick="() => Send(new BuildHouseCommand(me, Tile, DevelopmentType.Residential))">Build</button>
+            }
+            @if (prop.Level > 0)
+            {
+              <button class="ghost" @onclick="() => Send(new SellHouseCommand(me, Tile))">Sell building</button>
+            }
+            @if (!prop.Mortgaged) { <button class="ghost" @onclick="() => Send(new MortgageCommand(me, Tile))">Mortgage</button> }
+            else { <button @onclick="() => Send(new UnmortgageCommand(me, Tile))">Unmortgage · @cur@Calc.UnmortgageCost(s, Tile, me)</button> }
+          }
+        </footer>
+      }
+    </Sheet>
+}
+
+@code {
+    [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
+    [Parameter] public int Tile { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private static readonly MarkupString StreetIcon = new("<svg viewBox=\"0 0 24 24\"><path d=\"M3 21h18M5 21V9l5-4v16M10 21V3l9 5v13\"/><path d=\"M13 9h3M13 12.5h3M13 16h3\"/></svg>");
+
+    private void Send(GameCommand command) => Game.Client.SendCommand(command);
+
+    private static string Kind(TileType t) => t switch
+    {
+        TileType.Transit => "Transit line",
+        TileType.Utility => "Utility",
+        TileType.Tax => "Tax",
+        TileType.Fortune => "Fortune",
+        TileType.Civic => "Civic",
+        TileType.Jail => "Jail",
+        TileType.GoToJail => "Go to jail",
+        TileType.Start => "Start",
+        TileType.Plaza => "Free plaza",
+        _ => "Property",
+    };
+
+    private static string About(TileType t) => t switch
+    {
+        TileType.Start => "Collect your salary each time you pass.",
+        TileType.Fortune => "Draw a Fortune card.",
+        TileType.Civic => "Draw a Civic card.",
+        TileType.Jail => "Just visiting — unless you were sent here.",
+        TileType.GoToJail => "Go directly to jail.",
+        TileType.Plaza => "Take a breather.",
+        TileType.Tax => "Pay the tax to the bank.",
+        _ => "",
+    };
+}
