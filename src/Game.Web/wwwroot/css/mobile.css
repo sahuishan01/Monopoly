@@ -142,3 +142,11 @@ button.peek-toggle:active:not(:disabled) { transform: none; background: color-mi
   /* very short portrait screens keep every pixel for the board */
 }
 @media (max-width: 800px) and (orientation: portrait) and (max-height: 600px) { .player-strip { display: none; } }
+@media (max-width: 400px) {
+  .ps-chip { gap: 5px; padding: 5px 6px; }
+  .ps-chip .avatar { width: 24px; height: 24px; border-radius: 8px; }
+  .ps-chip .avatar svg { width: 16px; height: 16px; }
+  .ps-name { display: none; }
+  .ps-text { overflow: hidden; }
+  .ps-cash { font-size: .72rem; overflow: hidden; text-overflow: ellipsis; }
+}
