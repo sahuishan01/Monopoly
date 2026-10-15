@@ -213,7 +213,7 @@ The last full run on 2026-10-15 (arm64, 2 cores, software GL) passed:
 - render-check: 14 renders and 5 framings.
 - smoke: ok.
 - e2e-check: 29/29.
-- home-check: 87/87.
+- home-check: 87/87. It was re-run after the camera and 2D changes: 87/87.
 - mobile-check: 204/204.
 
 ## Size (Release publish)
@@ -232,7 +232,7 @@ The last full run on 2026-10-15 (arm64, 2 cores, software GL) passed:
   - Low on a 2-core, DPR-2 phone renders at 1x and looks soft.
 - **3D taps**: a 3D tile tap while the follow camera is still gliding can miss once (seen in scripted runs, not root-caused).
 - **Not reproduced in tests**: the original 2D hop flicker cannot be reproduced by the frame sampler, so its fix is verified by reasoning and by the sampler only.
-- **Untested platforms**: not checked on a real GPU, on iOS Safari or on Firefox. All browser checks use Chromium with Mesa llvmpipe. Frame times under software GL say nothing about real devices, so no throttled-CPU frame budget was measured.
+- **Untested platforms**: not checked on a real GPU, on iOS Safari or on Firefox. All browser checks use Chromium with Mesa llvmpipe. Frame times were measured only under software GL (see "Frame time" below). They are not device numbers, and no real-device frame budget has been checked.
 - **Cold load**: the boot screen ("Loading BoardEmpire…") uses the default tokens until Blazor applies the saved theme, about a second later.
 - **Mobile layout**: the landscape rail repeats "Your turn" in the peek strip and the HUD head.
 - **Lobby**: the sticky action bar covers content while it scrolls past, as sticky bars do. It is opaque, and the end of the page clears it.
@@ -240,6 +240,36 @@ The last full run on 2026-10-15 (arm64, 2 cores, software GL) passed:
   - `EventText` omits ability, objective, economy, project and contract events.
   - Toasts show bot events too.
 - **Context loss**: the hero stays CSS for the rest of the visit after a context loss.
+
+## Frame time (software GL, not device numbers)
+
+How it was measured:
+- Play vs 3 bots at 1280x800 in headless Chromium on this 2-core aarch64 host.
+- WebGL ran on Mesa llvmpipe (`--use-angle=gl-egl`): every pixel is rasterised on the CPU, which Game.Server shares.
+- Intervals between `requestAnimationFrame` calls over 6 s, with CDP `Emulation.setCPUThrottlingRate` set to 1 and then 4.
+
+```
+3d high cpu x1: frames 15, median 433.3 ms, p95 566.6 ms, ~2.5 fps
+3d high cpu x4: frames 9, median 699.9 ms, p95 750.0 ms, ~1.5 fps
+3d low  cpu x1: frames 18, median 316.7 ms, p95 450.0 ms, ~3.0 fps
+3d low  cpu x4: frames 11, median 500.0 ms, p95 733.2 ms, ~1.8 fps
+2d low  cpu x1: frames 34, median 66.7 ms, p95 150.0 ms, ~5.7 fps
+2d low  cpu x4: frames 48, median 116.6 ms, p95 216.6 ms, ~8.0 fps
+```
+
+What this does and does not show:
+- The ordering holds: Low is cheaper than High, and 2D is much cheaper than 3D.
+- The absolute values are dominated by CPU rasterisation, and the throttle does not slow the GPU process, so they do not predict a phone or desktop with a GPU.
+- Measuring on real hardware is still open: a mid-range Android phone and an integrated-GPU laptop, using the in-app Auto probe (it downgrades past a 28 ms median).
+
+## Screenshots
+
+`docs/screenshots/*.webp` (0.47 MB in total) shows each of the four themes:
+- desktop 1280x800: Home, Play 3D and Play 2D, downscaled to 800 px wide;
+- phone 390x844: Play 3D and Play 2D, downscaled to 360 px wide;
+- plus one desktop and one phone Lobby.
+
+They are named `<theme>-<desktop|phone>-<screen>.webp`, for example `neon-noir-desktop-play-3d.webp`. They were captured on software GL (llvmpipe).
 
 ## Deploy notes
 
