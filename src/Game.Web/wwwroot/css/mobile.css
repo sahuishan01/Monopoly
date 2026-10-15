@@ -1,0 +1,144 @@
+/* ===== Mobile layouts =====
+   Portrait phones (<= 800 px wide, not a short landscape screen): the board fills the viewport and the HUD
+   is a bottom sheet. Collapsed it shows only the peek strip (whose turn, your cash, the one action the turn
+   needs); tap or drag the handle to expand the full HUD. ui.js reads --hud-sheet to know the mode.
+   Landscape phones (<= 500 px tall): board on the left, the HUD as a scrolling side rail on the right.
+   Loaded last so it overrides ui.css / board2d.css at equal specificity. */
+
+/* ---- shared phone and touch rules ---- */
+@media (max-width: 800px), (orientation: landscape) and (max-height: 500px), (pointer: coarse) {
+  html:has(main.play), html:has(main.play) body { overscroll-behavior: none; }
+  .play { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  /* touch targets: 44 x 44 minimum for everything tappable in the HUD, toolbars and sheets */
+  .icon-btn, .hud .mute { width: 44px; height: 44px; }
+  .seg button, .seg.small button { min-height: 44px; min-width: 48px; }
+  .side button, .side select, .side input, .hud-peek button, .board-tools button,
+  .sheet-panel button, .sheet-panel select, .sheet-panel input:not([type=checkbox]):not([type=radio]):not([type=range]) { min-height: 44px; }
+  .side button, .hud-peek button, .sheet-panel button { min-width: 44px; }
+  .chip { min-height: 44px; padding: .5rem .95rem; font-size: .85rem; }
+  .check { min-height: 44px; }
+  .slider input[type=range] { height: 44px; }
+  .toast-x { width: 44px; height: 44px; margin: -8px -4px -8px 0; }
+  input, select, textarea { font-size: 16px; }   /* iOS zooms the page into smaller inputs */
+  .sheet-panel { max-height: calc(100dvh - 32px); }
+}
+
+/* ---- the peek strip (both phone layouts) ---- */
+.hud-peek { align-items: center; gap: 10px; min-width: 0; }
+.peek-toggle {
+  position: static; flex: 1; min-width: 0; height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto;
+  align-content: center; column-gap: 8px; row-gap: 3px; padding: 0 6px; text-align: left;
+  background: transparent; color: var(--text); border: 0; border-radius: 12px; touch-action: none;
+}
+button.peek-toggle:active:not(:disabled) { transform: none; background: color-mix(in srgb, var(--text) 5%, transparent); }
+.peek-grip { position: absolute; top: 7px; left: 50%; width: 42px; height: 5px; margin-left: -21px; border-radius: 3px; background: color-mix(in srgb, var(--text) 30%, transparent); }
+.peek-turn { grid-column: 1; display: flex; align-items: center; min-width: 0; }
+.peek-title { font: 700 .68rem/1.1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud-peek.mine .peek-title { color: var(--accent); }
+.peek-cash { grid-column: 1; display: flex; }
+.peek-cash .money { font-size: 1.22rem; }
+.peek-chev { grid-column: 2; grid-row: 1 / 3; align-self: center; width: 22px; height: 22px; fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .3s var(--ease-out); }
+.hud-open .peek-chev { transform: rotate(180deg); }
+.peek-action { flex: none; display: flex; align-items: center; }
+.peek-action button { min-height: 50px; padding: 0 1.15rem; border-radius: 14px; font-size: 1rem; }
+.peek-action .cta { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-width: 128px; min-height: 52px; font-size: 1.06rem; }
+.peek-action .cta svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.peek-action .cta svg circle { fill: currentColor; stroke: none; }
+.peek-action .cta:not(:disabled) { animation: cta-breathe 2.4s ease-in-out infinite; }
+.peek-action .cta:disabled { opacity: .55; filter: saturate(.6); }
+.peek-wait {
+  display: inline-flex; align-items: center; gap: .55rem; height: 40px; padding: 0 14px; border-radius: 999px;
+  font: 700 .66rem/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+  border: 1px solid var(--edge-soft); background: color-mix(in srgb, var(--bg) 40%, transparent);
+}
+.side-tools button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; }
+.side-tools svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- portrait phones: bottom sheet ---- */
+@media (max-width: 800px) and (orientation: portrait), (max-width: 800px) and (min-height: 501px) {
+  html:has(main.play), html:has(main.play) body { height: 100%; overflow: hidden; }
+  .play {
+    --hud-sheet: 1; --peek: 72px; --peek-px: 72; --safe-b: env(safe-area-inset-bottom, 0px);
+    display: block; height: 100dvh; min-height: 0; padding: 0; overflow: hidden;
+  }
+  .play .stage {
+    height: calc(100dvh - var(--peek) - var(--safe-b)); align-items: stretch;
+    padding: calc(8px + env(safe-area-inset-top, 0px)) calc(10px + env(safe-area-inset-right, 0px)) 10px calc(10px + env(safe-area-inset-left, 0px));
+  }
+  .board-wrap { width: 100%; height: 100%; min-height: 0; gap: 8px; }
+  .board-tools { flex: none; }
+  .board-slot { flex: 1; min-height: 0; display: grid; place-items: center; container-type: size; touch-action: manipulation; }
+  .board-slot .b2d { width: min(100cqw, 100cqh); max-width: none; }
+  .board-slot .board3d { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 18px; }
+
+  .side {
+    position: fixed; z-index: 40; left: 0; right: 0; bottom: 0; top: auto;
+    max-height: calc(100dvh - 64px - env(safe-area-inset-top, 0px));
+    display: flex; flex-direction: column; gap: 0; overflow: hidden;
+    padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+    background:
+      linear-gradient(160deg, color-mix(in srgb, var(--accent) 6%, transparent), transparent 35%),
+      linear-gradient(180deg, color-mix(in srgb, var(--panel) 92%, var(--text) 5%), color-mix(in srgb, var(--panel) 96%, var(--bg)));
+    border: 1px solid var(--edge); border-bottom: 0; border-radius: 22px 22px 0 0;
+    box-shadow: 0 -20px 44px -20px rgba(0, 0, 0, .9), inset 0 1px 0 rgba(255, 255, 255, .05);
+    transform: translateY(calc(100% - var(--peek) - var(--safe-b) + var(--drag, 0px)));
+    transition: transform .34s var(--ease-out);
+    will-change: transform;
+  }
+  .play.hud-open .side { transform: translateY(var(--drag, 0px)); }
+  .side.dragging { transition: none; }
+  .hud-peek { display: flex; flex: none; height: var(--peek); padding: 14px 12px 6px; position: relative; }
+  .side-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 4px 12px calc(16px + var(--safe-b)); gap: 12px; transition: opacity .25s; }
+  .play:not(.hud-open) .side-body { opacity: 0; }
+  .side .hud, .side .trades { background: color-mix(in srgb, var(--bg) 32%, transparent); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .side .hud .primary-actions > button.big { display: none; }   /* the peek strip carries it */
+  .side-tools { display: flex; gap: 8px; }
+  .hud-scrim { display: block; position: fixed; inset: 0; z-index: 39; background: color-mix(in srgb, var(--bg) 45%, rgba(0, 0, 0, .35)); animation: fade-in .2s ease both; }
+  .toasts { top: auto; left: 12px; right: 12px; width: auto; bottom: calc(var(--peek) + var(--safe-b) + 10px); }
+  .turn-banner { padding-left: 2%; padding-right: 2%; }
+}
+
+/* ---- landscape phones: board left, HUD rail right ---- */
+@media (orientation: landscape) and (max-height: 500px) {
+  html:has(main.play), html:has(main.play) body { height: 100%; overflow: hidden; }
+  .play {
+    --hud-sheet: 0;
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; height: 100dvh; min-height: 0; overflow: hidden;
+    padding: calc(6px + env(safe-area-inset-top, 0px)) calc(8px + env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px));
+  }
+  .play .stage { height: 100%; min-height: 0; flex-direction: row; align-items: stretch; }
+  .board-wrap { height: 100%; width: auto; flex-direction: row; gap: 8px; }
+  .board-slot { height: 100%; width: auto; aspect-ratio: 1; container-type: size; touch-action: manipulation; }
+  .board-slot .b2d, .board-slot .board3d { width: 100%; height: 100%; max-width: none; }
+  .board-tools { order: 3; flex-direction: column; justify-content: flex-start; }
+  .board-tools .seg { flex-direction: column; }
+  .side { position: static; height: 100%; max-height: none; overflow: auto; overscroll-behavior: contain; gap: 10px; padding-bottom: 6px; }
+  .hud-peek {
+    display: flex; position: sticky; top: 0; z-index: 2; flex: none; min-height: 68px; padding: 8px 8px 8px 6px;
+    border: 1px solid var(--edge-soft); border-radius: var(--radius);
+    background: color-mix(in srgb, var(--panel) 94%, var(--bg)); box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .9);
+  }
+  .side .hud .primary-actions > button.big { display: none; }
+  /* bottom of the rail: never over the peek strip's action */
+  .toasts { top: auto; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: min(300px, 45vw); }
+}
+
+/* ---- portrait players ribbon: uses the spare height under a square board (hidden elsewhere) ---- */
+.player-strip { display: none; }
+@media (max-width: 800px) and (orientation: portrait), (max-width: 800px) and (min-height: 501px) {
+  .player-strip { order: 3; flex: none; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 1px 4px; }
+  .player-strip::-webkit-scrollbar { display: none; }
+  .ps-chip {
+    flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 12px;
+    background: color-mix(in srgb, var(--panel) 80%, transparent); border: 1px solid var(--edge-soft); transition: border-color .25s, box-shadow .25s, background .25s;
+  }
+  .ps-chip.cur { border-color: color-mix(in srgb, var(--pc) 60%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--pc) 20%, transparent), color-mix(in srgb, var(--panel) 85%, transparent)); box-shadow: 0 0 18px -8px var(--pc); }
+  .ps-chip.out { opacity: .4; }
+  .ps-chip .avatar { width: 28px; height: 28px; border-radius: 9px; }
+  .ps-chip .avatar svg { width: 18px; height: 18px; }
+  .ps-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .ps-name { font-size: .72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ps-cash { font: 700 .8rem/1 var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* very short portrait screens keep every pixel for the board */
+}
+@media (max-width: 800px) and (orientation: portrait) and (max-height: 600px) { .player-strip { display: none; } }

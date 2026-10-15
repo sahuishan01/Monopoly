@@ -5,16 +5,18 @@
 @inject IJSRuntime Js
 @inject SettingsService Settings
 
-<main class="play">
+<main class="play @(hudOpen && sheetMode ? "hud-open" : "")">
   @if (game?.Display != null && game.Board != null)
   {
     <div class="stage">
       <div class="board-wrap">
-        @if (viewReady)
-        {
-          @if (Use3d) { <Board3D Game="game" OnUnavailable="Fallback" OnTileClick="OnTile" /> }
-          else { <Board2D State="game.Display" Board="game.Board" Game="game" OnTileClick="OnTile" /> }
-        }
+        <div class="board-slot">
+          @if (viewReady)
+          {
+            @if (Use3d) { <Board3D Game="game" OnUnavailable="Fallback" OnTileClick="OnTile" /> }
+            else { <Board2D State="game.Display" Board="game.Board" Game="game" OnTileClick="OnTile" /> }
+          }
+        </div>
         <div class="board-tools" role="toolbar" aria-label="Board">
           <div class="seg small" role="radiogroup" aria-label="Board view">
             <button role="radio" aria-checked="@(!Use3d ? "true" : "false")" class="@(!Use3d ? "on" : "")" @onclick="() => SetView(false)">2D</button>
@@ -27,12 +29,35 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
           </button>
         </div>
+        <div class="player-strip" aria-hidden="true">
+          @foreach (var p in game.Display.Players)
+          {
+            <span class="ps-chip player @(p.Id == game.Display.CurrentPlayer ? "cur" : "") @(p.Bankrupt ? "out" : "")" style="--o:@p.Id">
+              <span class="avatar"><svg viewBox="0 0 24 24"><path d="@Board2D.PawnPath(p.Token)" /></svg></span>
+              <span class="ps-text"><span class="ps-name">@p.Name</span><span class="ps-cash">@game.Board.Currency@p.Money</span></span>
+            </span>
+          }
+        </div>
         <TurnBanner Game="game" />
       </div>
     </div>
-    <div class="side">
-      <Hud Game="game" />
-      <TradeDialog Game="game" />
+    @if (hudOpen && sheetMode) { <div class="hud-scrim" @onclick="CollapseHud"></div> }
+    <div class="side" @ref="sideEl">
+      <HudBar Game="game" Sheet="sheetMode" Open="hudOpen" OnToggle="ToggleHud" OnExpand="ExpandHud" />
+      <div class="side-body" id="hud-body" inert="@(sheetMode && !hudOpen)">
+        <Hud Game="game" />
+        <div class="side-tools">
+          <button class="ghost" @onclick="ToggleLog">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12" /><circle cx="4" cy="6" r="1" /><circle cx="4" cy="12" r="1" /><circle cx="4" cy="18" r="1" /></svg>
+            Game log
+          </button>
+          <button class="ghost" @onclick="OpenSettings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /></svg>
+            Settings
+          </button>
+        </div>
+        <TradeDialog Game="game" />
+      </div>
     </div>
     <Toasts Game="game" />
     <EventLog Game="game" Open="logOpen" OnClose="CloseLog" />
@@ -59,7 +84,9 @@
     private bool autoCard;          // the open card was opened by a purchase offer and closes when the offer ends
     private bool settingsOpen, logOpen;
     private bool viewReady, glFailed, disposed;
-    private IJSObjectReference? keys, keysModule;
+    private bool hudOpen, sheetMode;   // mobile bottom-sheet HUD: expanded?, and is the sheet layout active (reported by ui.js)
+    private ElementReference sideEl;
+    private IJSObjectReference? keys, keysModule, uiModule, sheet;
     private DotNetObjectReference<Play>? self;
 
     private bool Use3d => Settings.View3d && !glFailed;
@@ -111,13 +138,13 @@
             && game.PendingEvents <= 12 && !settingsOpen && !logOpen && selected == null)
         {
             int tile = TurnActions.OfferedTile(after);
-            _ = InvokeAsync(() => { selected = tile; autoCard = true; StateHasChanged(); });
+            _ = InvokeAsync(() => { selected = tile; autoCard = true; hudOpen = false; StateHasChanged(); });
         }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
+        if (!firstRender) { await AttachSheet(); return; }
         await Settings.EnsureLoadedAsync();
         if (disposed) return;
         Settings.Changed += OnSettings;
@@ -138,11 +165,11 @@
                 }
                 else Settings.View3d = Settings.Quality != "low" && await ui.InvokeAsync<bool>("webgl");
             }
-            await ui.DisposeAsync();
-            if (disposed) return;
+            uiModule = ui;
+            self = DotNetObjectReference.Create(this);
             keysModule = await Js.InvokeAsync<IJSObjectReference>("import", "./js/keys.js");
             if (disposed) { await keysModule.DisposeAsync(); keysModule = null; return; }
-            keys = await keysModule.InvokeAsync<IJSObjectReference>("attach", self = DotNetObjectReference.Create(this));
+            keys = await keysModule.InvokeAsync<IJSObjectReference>("attach", self);
             if (disposed) await ReleaseKeys();
         }
         catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
@@ -150,7 +177,31 @@
         StateHasChanged();
     }
 
+    // The HUD side element exists once the match has loaded; hook the mobile sheet helper to it then.
+    private bool attachingSheet;
+    private async Task AttachSheet()
+    {
+        if (sheet != null || attachingSheet || disposed || uiModule == null || self == null || game?.Display == null || game.Board == null) return;
+        attachingSheet = true;
+        try
+        {
+            var s = await uiModule.InvokeAsync<IJSObjectReference>("hudSheet", sideEl, self);
+            if (disposed) { await s.InvokeVoidAsync("dispose"); await s.DisposeAsync(); return; }
+            sheet = s;
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
+        finally { attachingSheet = false; }
+    }
+
     private void OnSettings() => InvokeAsync(StateHasChanged);
+
+    /// <summary>ui.js reports whether the bottom-sheet layout is active (portrait phones).</summary>
+    [JSInvokable] public void HudMode(bool sheet) { if (sheetMode == sheet) return; sheetMode = sheet; if (!sheet) hudOpen = false; StateHasChanged(); }
+    /// <summary>ui.js: the sheet handle was dragged open or closed.</summary>
+    [JSInvokable] public void SetHud(bool open) { if (hudOpen == open) return; hudOpen = open; StateHasChanged(); }
+    private void ToggleHud() => hudOpen = !hudOpen;
+    private void ExpandHud() => hudOpen = true;
+    private void CollapseHud() => hudOpen = false;
 
     [JSInvokable]
     public async Task OnShortcut(string action)
@@ -170,6 +221,7 @@
             case "log": logOpen = !logOpen; break;
             case "escape":
                 if (selected != null) CloseCard();
+                else if (hudOpen && sheetMode) hudOpen = false;
                 else if (settingsOpen) settingsOpen = false;
                 else if (logOpen) logOpen = false;
                 break;
@@ -199,11 +251,11 @@
 
     // WebGL could not start: show 2D for this session without overwriting the saved preference.
     private Task Fallback() { glFailed = true; return InvokeAsync(StateHasChanged); }
-    private Task OnTile(int tile) { selected = tile; autoCard = false; settingsOpen = false; logOpen = false; StateHasChanged(); return Task.CompletedTask; }
+    private Task OnTile(int tile) { hudOpen = false; selected = tile; autoCard = false; settingsOpen = false; logOpen = false; StateHasChanged(); return Task.CompletedTask; }
     private void CloseCard() { selected = null; autoCard = false; }
-    private void ToggleLog() { logOpen = !logOpen; if (logOpen) { settingsOpen = false; selected = null; } }
+    private void ToggleLog() { logOpen = !logOpen; if (logOpen) { settingsOpen = false; selected = null; hudOpen = false; } }
     private void CloseLog() => logOpen = false;
-    private void OpenSettings() { settingsOpen = true; logOpen = false; selected = null; }
+    private void OpenSettings() { settingsOpen = true; logOpen = false; selected = null; hudOpen = false; }
     private void CloseSettings() => settingsOpen = false;
 
     private async Task ReleaseKeys()
@@ -218,11 +270,24 @@
         catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
     }
 
+    private async Task ReleaseSheet()
+    {
+        var sh = sheet; var m = uiModule;
+        sheet = uiModule = null;
+        try
+        {
+            if (sh != null) { await sh.InvokeVoidAsync("dispose"); await sh.DisposeAsync(); }
+            if (m != null) await m.DisposeAsync();
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
+    }
+
     public async ValueTask DisposeAsync()
     {
         disposed = true;
         Detach();
         Settings.Changed -= OnSettings;
+        await ReleaseSheet();
         await ReleaseKeys();
         self?.Dispose();
     }

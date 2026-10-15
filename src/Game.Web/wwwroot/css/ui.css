@@ -58,7 +58,11 @@ button.ghost.danger { color: var(--bad); border-color: color-mix(in srgb, var(--
 .play { grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 12px 16px; min-height: 100vh; }
 .play .stage { align-items: center; }
 .board-wrap { position: relative; width: min(100%, calc(100vh - 76px)); display: flex; flex-direction: column; gap: 10px; }
+.board-slot { order: 2; width: 100%; }
 .board-wrap .b2d, .board-wrap .board3d { width: 100%; order: 2; }
+/* mobile-only pieces (see mobile.css) */
+.hud-peek, .side-tools, .hud-scrim { display: none; }
+.side-body { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .board-tools { order: 1; display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 .side { gap: 14px; }
 

@@ -1,0 +1,95 @@
+@* Mobile HUD peek: the always-visible top strip of the bottom sheet (and the sticky head of the landscape
+   rail). Shows whose turn it is, your cash and the one action the turn needs, within thumb reach.
+   Tapping or dragging the handle expands the full HUD. Hidden on desktop, where the HUD panel has it all. *@
+@{
+    var s = Game.Display!;
+    int me = TurnActions.Me(Game.Client.Seats);
+    bool myTurn = me >= 0 && me < s.Players.Count && s.CurrentPlayer == me && !s.Players[me].Bankrupt;
+    var curP = s.CurrentPlayer >= 0 && s.CurrentPlayer < s.Players.Count ? s.Players[s.CurrentPlayer] : null;
+    var mine = me >= 0 && me < s.Players.Count ? s.Players[me] : null;
+    var shown = mine ?? curP;
+    var debt = s.Phase == TurnPhase.DebtResolution && s.Debts.Count > 0 ? s.Debts[0] : null;
+    var auc = s.Phase == TurnPhase.Auction ? s.Auction : null;
+    bool bidding = auc != null && mine is { Bankrupt: false } && auc.Participants.Contains(me) && !auc.Passed.Contains(me);
+    bool settling = Game.PendingEvents > 0;
+    string title = s.IsOver ? "Game over" : myTurn ? "Your turn" : (curP?.Name ?? "") + "'s turn";
+}
+<div class="hud-peek @(myTurn && !s.IsOver ? "mine" : "")">
+  @if (Sheet)
+  {
+    <button type="button" class="peek-toggle" aria-expanded="@(Open ? "true" : "false")" aria-controls="hud-body"
+            aria-label="@(Open ? "Collapse match panel" : "Expand match panel")" @onclick="OnToggle">
+      <span class="peek-grip" aria-hidden="true"></span>
+      @Summary(s, title, shown)
+      <svg class="peek-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
+    </button>
+  }
+  else
+  {
+    <div class="peek-toggle static">@Summary(s, title, shown)</div>
+  }
+  <div class="peek-action">
+    @if (s.IsOver)
+    {
+      @if (me >= 0) { <button class="primary" @onclick="() => Game.Client.Send(new RequestRematch())">Rematch</button> }
+    }
+    else if (myTurn && s.Phase == TurnPhase.PreRoll)
+    {
+      <button class="primary cta" disabled="@settling" @onclick="() => Send(new RollDiceCommand(me))">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" /><circle cx="8.5" cy="8.5" r="1.3" /><circle cx="15.5" cy="15.5" r="1.3" /><circle cx="12" cy="12" r="1.3" /></svg>
+        <span>Roll</span>
+      </button>
+    }
+    else if (myTurn && s.Phase == TurnPhase.BuyDecision)
+    {
+      <button class="primary cta" disabled="@settling" @onclick="() => Send(new BuyPropertyCommand(me))"><span>Buy @Board.Currency@Price(s)</span></button>
+    }
+    else if (myTurn && s.Phase == TurnPhase.PostRoll)
+    {
+      <button class="primary cta" disabled="@settling" @onclick="() => Send(new EndTurnCommand(me))"><span>End turn</span></button>
+    }
+    else if (debt != null && debt.Debtor == me)
+    {
+      <button class="ghost danger" @onclick="Expand">Settle debt</button>
+    }
+    else if (bidding)
+    {
+      <button class="primary" @onclick="Expand">Bid</button>
+    }
+    else
+    {
+      <span class="peek-wait"><span class="pulse" style="--o:@Math.Max(0, s.CurrentPlayer)" aria-hidden="true"></span>@(auc != null ? "Auction" : "Waiting")</span>
+    }
+  </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public GameSession Game { get; set; } = null!;
+    /// <summary>True in bottom-sheet mode (portrait phones): the summary is a toggle button.</summary>
+    [Parameter] public bool Sheet { get; set; }
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback OnToggle { get; set; }
+    [Parameter] public EventCallback OnExpand { get; set; }
+    private BoardDefinition Board => Game.Board!;
+
+    private RenderFragment Summary(GameState s, string title, PlayerState? shown) => __builder =>
+    {
+        <span class="peek-turn" style="--o:@Math.Max(0, s.CurrentPlayer)">
+          <span class="pdot" aria-hidden="true"></span>
+          <span class="peek-title">@title</span>
+        </span>
+        @if (shown != null)
+        {
+          <span class="peek-cash" title="@shown.Name"><Money Value="shown.Money" Currency="@Board.Currency" /></span>
+        }
+    };
+
+    private int Price(GameState s)
+    {
+        int t = TurnActions.OfferedTile(s);
+        return t >= 0 && t < Board.Tiles.Count ? Calc.PurchasePrice(s, t) : 0;
+    }
+
+    private Task Expand() => OnExpand.InvokeAsync();
+    private void Send(GameCommand command) => Game.Client.SendCommand(command);
+}

@@ -70,6 +70,69 @@ export function swipe(panel, dotnet, method) {
   };
 }
 
+/**
+ * Mobile HUD bottom sheet. Reports the layout mode (CSS sets `--hud-sheet: 1` on the play page in
+ * bottom-sheet mode) to `dotnet.HudMode(bool)` whenever it changes, and turns a vertical drag on the
+ * sheet's handle area into `dotnet.SetHud(open)`. A plain tap is left to the handle's own click.
+ */
+export function hudSheet(sheet, dotnet) {
+  let ref = dotnet, last = null, drag = null, swallow = false;
+  const isSheet = () => getComputedStyle(sheet).getPropertyValue('--hud-sheet').trim() === '1';
+  const isOpen = () => !!sheet.closest('.hud-open');
+  const report = () => {
+    const m = isSheet();
+    if (m !== last) { last = m; ref?.invokeMethodAsync('HudMode', m).catch(() => { }); }
+  };
+  const handle = ev => ev.target instanceof Element && ev.target.closest('.peek-toggle') && sheet.contains(ev.target);
+  const down = ev => {
+    if (!isSheet() || !handle(ev) || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
+    drag = { id: ev.pointerId, y0: ev.clientY, dy: 0, open: isOpen(), moving: false };
+  };
+  const move = ev => {
+    if (!drag || ev.pointerId !== drag.id) return;
+    const dy = ev.clientY - drag.y0;
+    if (!drag.moving && Math.abs(dy) < 8) return;
+    if (!drag.moving) { drag.moving = true; try { sheet.setPointerCapture(ev.pointerId); } catch { } sheet.classList.add('dragging'); }
+    const peek = parseFloat(getComputedStyle(sheet).getPropertyValue('--peek-px')) || 72;
+    const travel = Math.max(0, sheet.offsetHeight - peek);
+    drag.dy = drag.open ? Math.min(travel, Math.max(0, dy)) : Math.max(-travel, Math.min(0, dy));
+    sheet.style.setProperty('--drag', drag.dy + 'px');
+    ev.preventDefault();
+  };
+  const up = ev => {
+    if (!drag || ev.pointerId !== drag.id) return;
+    const d = drag; drag = null;
+    if (!d.moving) return;
+    swallow = true; setTimeout(() => { swallow = false; }, 400);   // the drag must not also toggle via click
+    sheet.classList.remove('dragging');
+    sheet.style.removeProperty('--drag');
+    const open = d.open ? d.dy < 60 : d.dy < -60;
+    if (open !== d.open) ref?.invokeMethodAsync('SetHud', open).catch(() => { });
+  };
+  const click = ev => { if (swallow) { swallow = false; ev.stopPropagation(); ev.preventDefault(); } };
+  sheet.addEventListener('pointerdown', down);
+  sheet.addEventListener('pointermove', move);
+  sheet.addEventListener('pointerup', up);
+  sheet.addEventListener('pointercancel', up);
+  sheet.addEventListener('click', click, true);
+  addEventListener('resize', report);
+  addEventListener('orientationchange', report);
+  report();
+  return {
+    refresh: report,
+    dispose() {
+      ref = null;
+      sheet.removeEventListener('pointerdown', down);
+      sheet.removeEventListener('pointermove', move);
+      sheet.removeEventListener('pointerup', up);
+      sheet.removeEventListener('pointercancel', up);
+      sheet.removeEventListener('click', click, true);
+      removeEventListener('resize', report);
+      removeEventListener('orientationchange', report);
+    },
+  };
+}
+
 /** True when a WebGL context can be created (cheap probe, context released at once). */
 export function webgl() {
   try {

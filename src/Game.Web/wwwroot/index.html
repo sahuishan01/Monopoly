@@ -2,14 +2,27 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>BoardEmpire</title>
   <base href="/" />
+  <meta name="description" content="Build, trade and bankrupt your friends — right in the browser." />
+  <!-- theme.js keeps theme-color in step with the active theme's --bg -->
+  <meta name="theme-color" content="#07080f" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BoardEmpire" />
+  <!-- Installable without a service worker on purpose: nothing (API, WebSocket, game assets) is cached offline. -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/192.png" />
+  <link rel="apple-touch-icon" href="icons/192.png" />
   <link rel="stylesheet" href="css/tokens.css" />
   <link rel="stylesheet" href="css/layout.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/board2d.css" />
   <link rel="stylesheet" href="css/ui.css" />
+  <link rel="stylesheet" href="css/mobile.css" />
 </head>
 <body>
   <div id="app"><p class="boot">Loading BoardEmpire…</p></div>
