@@ -1,12 +1,31 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { skyTexture, buildEnvironment } from './materials.js';
+import { Motion, Tween, ease, DICE_FACE_VALUES } from './motion.js';
 
-export function createWorld(board, look, renderer) {
+export function createWorld(board, look, renderer, opts = {}) {
   const side = board.Tiles.length / 4;
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0x000000, 28, 75);
   const tokens = new Map();
   const tiles = [];
+  const motion = new Motion({ posOf: t => pos(t), n: board.Tiles.length, reduce: !!opts.reduceMotion });
+  let prevLevels = null;
+
+  const diceGroup = new THREE.Group();
+  diceGroup.visible = false; diceGroup.position.set(0, 0, 0);
+  scene.add(diceGroup);
+  const pipTex = DICE_FACE_VALUES.map(v => {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#f5f1e6'; g.fillRect(0, 0, 64, 64); g.fillStyle = '#222';
+    const P = { 1: [[1, 1]], 2: [[0, 0], [2, 2]], 3: [[0, 0], [1, 1], [2, 2]], 4: [[0, 0], [2, 0], [0, 2], [2, 2]],
+      5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]], 6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]] }[v];
+    for (const [x, y] of P) { g.beginPath(); g.arc(14 + x * 18, 14 + y * 18, 5, 0, 7); g.fill(); }
+    return new THREE.CanvasTexture(c);
+  });
+  const diceMats = pipTex.map(map => new THREE.MeshStandardMaterial({ map, roughness: 0.4 }));
+  const diceGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+  const cubes = [0, 1].map(() => { const m = new THREE.Mesh(diceGeo, diceMats); m.castShadow = true; diceGroup.add(m); return m; });
 
   function cell(tile) {
     const n = side * 4;
@@ -106,11 +125,12 @@ export function createWorld(board, look, renderer) {
     strip.position.copy(pos(i)).add(new THREE.Vector3(0, 0.07, -0.42));
     scene.add(strip);
     mesh.userData.strip = strip;
+    mesh.userData.base = col.clone();
     const lab = label(t.Name || '');
     lab.position.copy(pos(i)).setY(0.075);
     scene.add(lab);
     mesh.userData.label = lab;
-    tiles.push({ mesh, building: null });
+    tiles.push({ mesh, building: null, aura: null, sig: '', pendingSpring: false });
   });
 
   function ensureToken(p) {
@@ -133,30 +153,112 @@ export function createWorld(board, look, renderer) {
       for (const p of s.Players) {
         const t = ensureToken(p);
         t.mesh.visible = !p.Bankrupt;
+        t.mesh.scale.set(1, 1, 1);
         t.target = pos(p.Position).setY(0.35);
+        if (!t.busy) t.mesh.position.copy(t.target);
+        t.tile = p.Position;
       }
       s.Properties.forEach((prop, i) => {
         if (!prop || !tiles[i]) return;
         const tile = tiles[i];
-        const h = 0.12 + prop.Level * 0.25;
-        if (tile.building) { disposeMesh(tile.building); tile.building = null; }
+        const sig = prop.Owner + ':' + prop.Level + ':' + !!prop.Mortgaged;
+        if (sig === tile.sig && (tile.building || tile.aura || (prop.Level <= 0 && prop.Owner < 0))) return;
+        tile.sig = sig;
+        const springIt = tile.pendingSpring; tile.pendingSpring = false;
+        if (tile.building) { motion.cancel(tile.building); disposeMesh(tile.building); tile.building = null; }
+        if (tile.aura) { motion.cancel(tile.aura); disposeMesh(tile.aura); tile.aura = null; }
+        // mortgaged tiles desaturate and dim
+        const mort = !!prop.Mortgaged, base = tile.mesh.userData.base, strip = tile.mesh.userData.strip;
+        const gray = base.r * 0.3 + base.g * 0.59 + base.b * 0.11;
+        const dim = mort ? new THREE.Color(gray, gray, gray).multiplyScalar(0.5) : base.clone().multiplyScalar(0.6);
+        tile.mesh.material.color.copy(dim);
+        strip.material.color.copy(mort ? new THREE.Color(gray, gray, gray) : base);
+        strip.material.emissive.copy(strip.material.color);
+        strip.material.emissiveIntensity = look.theme.scene.bloom * (mort ? 0.2 : 1);
+        if (prop.Owner >= 0) {
+          const hue = (prop.Owner * 0.17) % 1;
+          const ring = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.78, 32),
+            new THREE.MeshBasicMaterial({ color: new THREE.Color().setHSL(hue, 0.8, mort ? 0.3 : 0.55), transparent: true, opacity: mort ? 0.35 : 0.85,
+              blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.copy(pos(i)).setY(-0.055);
+          scene.add(ring); tile.aura = ring;
+          if (springIt) motion.spring(ring, 0, 1, 0.5);
+        }
         if (prop.Level > 0 || prop.Owner >= 0) {
-          const b = new THREE.Mesh(new THREE.BoxGeometry(0.6, Math.max(h, 0.2), 0.6), look.building(prop));
+          const lvl = prop.Level, h = 0.12 + Math.min(lvl, 4) * 0.25;
+          let b;
+          if (lvl >= 5) {
+            b = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.3, 1.5, 8), look.building(prop));
+            b.position.copy(pos(i)).setY(0.75 + 0.06);
+          } else {
+            b = new THREE.Mesh(new THREE.BoxGeometry(0.6, Math.max(h, 0.2), 0.6), look.building(prop));
+            b.position.copy(pos(i)).setY(h / 2 + 0.06);
+          }
           b.castShadow = b.receiveShadow = true;
-          b.position.copy(pos(i)).setY(h / 2 + 0.06);
-          scene.add(b);
-          tile.building = b;
+          scene.add(b); tile.building = b;
+          if (springIt) { b.scale.set(0, 0, 0); motion.spring(b, 0, 1, 0.55); }
         }
       });
     },
-    playEvent(e) {
-      if (e['$t'] === 'PlayerMoved') {
-        const t = tokens.get(e.Player);
-        if (t) t.target = pos(e.To).setY(0.35);
+    playEvent(e, burst) {
+      const type = e['$t'];
+      const fast = !!burst;
+      const tok = tokens.get(e.Player);
+      switch (type) {
+        case 'PlayerMoved':
+          if (tok) {
+            const to = pos(e.To).setY(0.35);
+            tok.target = to; tok.tile = e.To;
+            motion.cancel(tok);
+            if (fast || motion.reduce) { tok.mesh.position.copy(to); tok.mesh.scale.set(1, 1, 1); tok.busy = false; }
+            else motion.hop(tok, e.From, e.To, 0.16);
+          }
+          break;
+        case 'PlayerSentToJail':
+          if (tok) {
+            const to = pos(e.JailTile).setY(0.35);
+            tok.target = to;
+            motion.cancel(tok);
+            if (fast || motion.reduce) { tok.mesh.position.copy(to); tok.busy = false; }
+            else motion.hop(tok, tok.tile ?? 0, e.JailTile, 0.16);
+            tok.tile = e.JailTile;
+          }
+          break;
+        case 'DiceRolled':
+          if (!fast && !motion.reduce) motion.dice(diceGroup, cubes, e.D1, e.D2);
+          break;
+        case 'BuildingConstructed':
+        case 'PropertyPurchased': {
+          const tile = tiles[e.Tile];
+          if (!tile || fast || motion.reduce) break;
+          if (tile.building) { tile.building.scale.set(0, 0, 0); motion.spring(tile.building, 0, 1, 0.55); }
+          else tile.pendingSpring = true;
+          if (tile.aura) { motion.spring(tile.aura, 0, 1, 0.5); }
+          break;
+        }
+        case 'PlayerBankrupt':
+          if (tok && !fast && !motion.reduce) {
+            motion.add(new Tween(0.5, ease.inOutQuad, u => { const s = 1 - u; tok.mesh.scale.set(s, s, s); },
+              () => { tok.mesh.visible = false; tok.mesh.scale.set(1, 1, 1); }), tok.mesh);
+          } else if (tok) tok.mesh.visible = false;
+          break;
+        case 'GameEnded':
+          if (!fast && !motion.reduce) for (const w of e.Winners || []) { const t = tokens.get(w); if (t) motion.spring(t.mesh, 1.6, 1, 0.8); }
+          break;
+        default: break;
       }
     },
-    step() { for (const t of tokens.values()) t.mesh.position.lerp(t.target, 0.15); },
+    tokenPos(id) { const t = tokens.get(id); return t ? t.mesh.position : null; },
+    setReduceMotion(v) { motion.setReduce(v); },
+    step(dt = 0.016) {
+      motion.update(dt);
+      for (const t of tokens.values()) if (!t.busy) t.mesh.position.lerp(t.target, 0.15);
+    },
     dispose() {
+      motion.clear();
+      scene.remove(diceGroup); diceGeo.dispose(); diceMats.forEach(m => m.dispose()); pipTex.forEach(t => t.dispose());
+      for (const t of tiles) { if (t.aura) { disposeMesh(t.aura); t.aura = null; } }
       for (const t of tokens.values()) disposeMesh(t.mesh);
       tokens.clear();
       for (const t of tiles) { disposeMesh(t.building); disposeMesh(t.mesh.userData.label); disposeMesh(t.mesh.userData.strip); t.mesh.geometry = null; disposeMesh(t.mesh); }

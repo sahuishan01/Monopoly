@@ -41,7 +41,7 @@ function loop(now) {
   const dt = last ? (now - last) / 1000 : 0.016;
   last = now;
   cam.tick(dt);
-  world.step();
+  world.step(dt);
   renderer.render(world.scene, cam.camera);
 }
 
@@ -60,7 +60,7 @@ export function init(canvasEl, boardJson, dotnetRef, optsJson) {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     const look = createLook(opts.theme);
-    world = createWorld(board, look, renderer);
+    world = createWorld(board, look, renderer, { reduceMotion: opts.reduceMotion });
     world.setTheme(opts.theme);
     ray = new THREE.Raycaster(); pointer = new THREE.Vector2();
     cam = createCamera(canvas, world.side, {
@@ -92,10 +92,19 @@ export function setQuality(q) {
   applyQuality();
 }
 
-export function setReduceMotion(v) { if (cam) cam.setReduceMotion(v); }
+export function setReduceMotion(v) { if (cam) cam.setReduceMotion(v); if (world) world.setReduceMotion(v); }
 
 export function applyState(stateJson) { if (world) world.applyState(JSON.parse(stateJson)); }
-export function playEvent(eventJson) { if (world) world.playEvent(JSON.parse(eventJson)); }
+export function playEvent(eventJson, burst) {
+  if (!world) return;
+  const e = typeof eventJson === 'string' ? parse(eventJson) : eventJson;
+  if (!e) return;
+  world.playEvent(e, !!burst);
+  if (!cam) return;
+  const t = e['$t'];
+  if (t === 'TurnStarted') { const p = world.tokenPos(e.Player); if (p) cam.follow(p); }
+  else if (t === 'AuctionStarted' || (typeof t === 'string' && t.startsWith('Trade'))) cam.overview();
+}
 
 export function dispose() {
   if (raf) cancelAnimationFrame(raf);

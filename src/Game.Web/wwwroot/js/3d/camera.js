@@ -10,6 +10,8 @@ export function createCamera(canvas, side, hooks, opts = {}) {
   const goal = { theta: 0, phi: 0.9, radius: side * 1.6, target: new THREE.Vector3() };
   const cur = { theta: 0, phi: 0.9, radius: side * 1.6, target: new THREE.Vector3() };
   let reduce = !!opts.reduceMotion;
+  let desired = null, manualT = 0;
+  const touch = () => { manualT = 4; };
   const cleanup = [];
   const pts = new Map();
   let down = null, lastDist = 0, lastMid = null;
@@ -23,6 +25,7 @@ export function createCamera(canvas, side, hooks, opts = {}) {
   }
   // Advance inertia; returns true while still moving.
   function tick(dt) {
+    if (manualT > 0) { manualT -= dt; if (manualT <= 0 && desired) goal.target.copy(desired.target), goal.radius = desired.radius; }
     const k = reduce ? 1 : 1 - Math.exp(-Math.min(dt, 0.1) * 12);
     const d = goal.theta - cur.theta, dp = goal.phi - cur.phi, dr = goal.radius - cur.radius;
     cur.theta += d * k; cur.phi += dp * k; cur.radius += dr * k;
@@ -47,6 +50,7 @@ export function createCamera(canvas, side, hooks, opts = {}) {
   const on = (e, f, o) => { canvas.addEventListener(e, f, o); cleanup.push(() => canvas.removeEventListener(e, f, o)); };
   on('contextmenu', e => e.preventDefault());
   on('pointerdown', e => {
+    touch();
     try { canvas.setPointerCapture(e.pointerId); } catch { }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY, btn: e.button });
     if (pts.size === 1) down = { x: e.clientX, y: e.clientY, moved: false };
@@ -86,12 +90,23 @@ export function createCamera(canvas, side, hooks, opts = {}) {
   on('pointerleave', () => hooks.setHover(-1));
   on('wheel', e => {
     e.preventDefault();
+    touch();
     goal.radius = clamp(goal.radius * (1 + Math.sign(e.deltaY) * 0.1), R_MIN, R_MAX);
   }, { passive: false });
   on('dblclick', () => { goal.theta = 0; goal.phi = 0.9; goal.radius = side * 1.6; goal.target.set(0, 0, 0); });
   apply();
   return {
     camera, tick, resize,
+    // follow/overview are auto modes; a user drag holds them off for 4 s
+    follow(p) {
+      desired = { target: new THREE.Vector3(p.x, 0, p.z).multiplyScalar(0.6), radius: side * 1.15 };
+      if (manualT <= 0) { goal.target.copy(desired.target); goal.radius = desired.radius; }
+    },
+    overview() {
+      desired = { target: new THREE.Vector3(), radius: side * 1.6 };
+      if (manualT <= 0) { goal.target.copy(desired.target); goal.radius = desired.radius; }
+    },
+    get manual() { return manualT > 0; },
     setReduceMotion(v) { reduce = !!v; },
     dispose() { cleanup.forEach(f => f()); cleanup.length = 0; pts.clear(); down = null; },
   };
