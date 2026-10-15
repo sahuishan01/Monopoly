@@ -6,7 +6,7 @@ const MARGIN = 0.92;            // fitted board stays inside this fraction of th
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 // Default polar angle: a little more top-down on tall (portrait) canvases so the board uses the height.
-export function defaultPhi(aspect) { return aspect < 0.85 ? 0.72 : 0.9; }
+export function defaultPhi(aspect) { return aspect < 0.85 ? 0.72 : 0.78; }
 
 /**
  * Smallest orbit radius at which the whole board (a box of half-width `half` and height `top`,
