@@ -1,6 +1,5 @@
 @implements IDisposable
 @inject SettingsService Settings
-@inject HttpClient Http
 @* In-game settings: theme (applied live), graphics quality, audio, motion and 2D/3D. Every change is saved at once. *@
 <Sheet Kind="drawer" LabelId="set-title" OnClose="OnClose" Class="setsheet">
   <header class="sheet-head">
@@ -72,33 +71,13 @@
 @code {
     [Parameter] public EventCallback OnClose { get; set; }
 
-    private sealed record ThemeInfo(string Id, string Name, string Bg, string Panel, string Accent, string Glow);
-    private List<ThemeInfo> themes = ThemeCatalog.Ids.Select(id => new ThemeInfo(id, Title(id), "#111", "#222", "#888", "#aaa")).ToList();
-    private static List<ThemeInfo>? cache;
-
-    private static string Title(string id) => string.Join(' ', id.Split('-').Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+    // Colours are embedded (ThemeCatalog.Swatches): right on a cold load, no fetch.
+    private readonly IReadOnlyList<ThemeCatalog.Swatch> themes = ThemeCatalog.Swatches;
 
     private void OnSettings() => _ = InvokeAsync(StateHasChanged);
     public void Dispose() => Settings.Changed -= OnSettings;
 
-    protected override async Task OnInitializedAsync()
-    {
-        Settings.Changed += OnSettings;
-        if (cache != null) { themes = cache; return; }
-        var list = new List<ThemeInfo>();
-        foreach (var id in ThemeCatalog.Ids)
-        {
-            try
-            {
-                using var doc = System.Text.Json.JsonDocument.Parse(await Http.GetStringAsync($"themes/{id}.json"));
-                var r = doc.RootElement; var css = r.GetProperty("css");
-                string C(string k) => css.TryGetProperty(k, out var v) ? v.GetString() ?? "#888" : "#888";
-                list.Add(new ThemeInfo(id, r.TryGetProperty("name", out var n) ? n.GetString() ?? Title(id) : Title(id), C("--bg"), C("--panel"), C("--accent"), C("--glow")));
-            }
-            catch { list.Add(themes.First(t => t.Id == id)); }
-        }
-        themes = cache = list;
-    }
+    protected override void OnInitialized() => Settings.Changed += OnSettings;
 
     private RenderFragment Slider(string id, string label, double value, Action<double> set) => __builder =>
     {

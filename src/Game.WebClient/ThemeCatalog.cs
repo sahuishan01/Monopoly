@@ -10,6 +10,21 @@ public static class ThemeCatalog
     static readonly string[] CssKeys = ["--bg", "--panel", "--text", "--muted", "--accent", "--bad", "--line", "--glow"];
     static readonly string[] SceneKeys = ["sky", "felt", "fog", "ambient", "sun", "bloom"];
 
+    /// <summary>A theme's name and picker colours.</summary>
+    public sealed record Swatch(string Id, string Name, string Bg, string Panel, string Accent, string Glow);
+
+    /// <summary>
+    /// Picker colours embedded statically, so theme chips show real colours on a cold load before any theme JSON
+    /// is fetched. Must match wwwroot/themes/*.json (ThemeCatalogTests checks this).
+    /// </summary>
+    public static IReadOnlyList<Swatch> Swatches { get; } =
+    [
+        new("neon-noir", "Neon Noir", "#07080f", "#111420", "#22f5c4", "#7c3aed"),
+        new("classic-gold", "Classic Gold", "#14100a", "#1f1810", "#e6b04a", "#f5d58a"),
+        new("frost", "Frost", "#0a141c", "#112230", "#7dd3fc", "#bae6fd"),
+        new("sakura", "Sakura", "#1a0f16", "#26161f", "#f9a8d4", "#fbcfe8"),
+    ];
+
     public static string Resolve(string? id) => id is not null && Ids.Contains(id) ? id : Default;
 
     public static IReadOnlyList<string> Validate(string json)
