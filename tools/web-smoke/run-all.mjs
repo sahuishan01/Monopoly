@@ -48,7 +48,7 @@ if (needStack) {
   catch (e) { console.error('stack failed to start:', e.message); summary.push(['stack', 1]); }
 }
 const stop = async () => { if (stack) { const s = stack; stack = null; await s.stop(); } };
-process.on('SIGINT', async () => { await stop(); process.exit(130); });
+for (const [sig, code] of [['SIGINT', 130], ['SIGTERM', 143]]) process.on(sig, async () => { await stop(); process.exit(code); });
 try {
   if (stack) {
     const b = `--base=${stack.base}`;

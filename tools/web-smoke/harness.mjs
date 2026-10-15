@@ -47,8 +47,10 @@ export function serveStatic(root, apiPort, port) {
       p.on('error', () => { res.writeHead(502); res.end(); });
       req.pipe(p); return;
     }
-    let f = path.join(root, decodeURIComponent(req.url.split('?')[0]));
-    if (!f.startsWith(root)) { res.writeHead(403); return res.end(); }
+    let rel;
+    try { rel = decodeURIComponent(req.url.split('?')[0]); } catch { res.writeHead(400); return res.end(); }
+    let f = path.join(root, rel);
+    if (f !== root && !f.startsWith(root + path.sep)) { res.writeHead(403); return res.end(); }
     if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) f = path.join(root, 'index.html');
     res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', 'cache-control': 'no-store' });
     fs.createReadStream(f).pipe(res);
@@ -85,6 +87,11 @@ async function waitHealthy(port, ms = 60000) {
  */
 export async function startStack(opts = {}) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'be-smoke-'));
+  const cleanup = () => fs.rmSync(tmp, { recursive: true, force: true });
+  try { return await start(tmp, cleanup, opts); } catch (e) { cleanup(); throw e; }
+}
+
+async function start(tmp, cleanup, opts) {
   let wwwroot = opts.wwwroot;
   if (!wwwroot) {
     console.log('[harness] dotnet publish src/Game.Web -c Release');
@@ -103,6 +110,7 @@ export async function startStack(opts = {}) {
     env: { ...process.env, ASPNETCORE_URLS: `http://127.0.0.1:${apiPort}`,
       BoardEmpire__TokenSecret: crypto.randomBytes(32).toString('base64'), BoardEmpire__BotDelaySeconds: String(opts.botDelay ?? 0.3) },
   });
+  fs.closeSync(log);   // the child keeps its own copy
   let exited = false;
   server.on('exit', () => { exited = true; });
   try { await waitHealthy(apiPort); } catch (e) { server.kill('SIGTERM'); throw e; }
@@ -117,7 +125,7 @@ export async function startStack(opts = {}) {
         server.kill('SIGTERM');
         await new Promise(r => { const t = setTimeout(() => { try { server.kill('SIGKILL'); } catch { } r(); }, 5000); server.once('exit', () => { clearTimeout(t); r(); }); });
       }
-      fs.rmSync(tmp, { recursive: true, force: true });   // publish output and the default server.log
+      cleanup();   // publish output and the default server.log
     },
   };
 }
