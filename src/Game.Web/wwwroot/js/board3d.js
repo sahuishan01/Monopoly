@@ -3,15 +3,15 @@ import { createWorld } from './3d/scene.js';
 import { createCamera } from './3d/camera.js';
 import { createLook } from './3d/materials.js';
 import { createFx, probeQuality } from './fx.js';
+import { autoTier, NARROW_PX } from './hero-policy.js';
 
 let renderer = null, world = null, cam = null, raf = 0, canvas = null, ro = null, last = 0;
 let dotnet = null, hover = -1, ray = null, pointer = null, quality = 'high';
 let fx = null, reduce = false, auto = false, probeGen = 0, curTheme = null, fogAt = NaN;
 
 function autoDefault() {
-  const small = typeof matchMedia === 'function' && matchMedia('(max-width:700px)').matches;
-  const cores = navigator.hardwareConcurrency || 8;
-  return small || cores <= 4 ? 'low' : 'high';
+  const small = typeof matchMedia === 'function' && matchMedia(`(max-width:${NARROW_PX}px)`).matches;
+  return autoTier({ width: small ? NARROW_PX : NARROW_PX + 1, cores: navigator.hardwareConcurrency || 8 });
 }
 
 // Auto mode: downgrade after one slow probe; upgrade back to high only after
@@ -217,7 +217,8 @@ function particles(e) {
   }
 }
 
-export function dispose() {
+/** loseContext: also release the GL context now (the component is going away and its canvas with it). */
+export function dispose(loseContext) {
   probeGen++; clearTimeout(probeTimer); clearTimeout(resizeTimer);
   if (raf) cancelAnimationFrame(raf);
   raf = 0;
@@ -232,7 +233,9 @@ export function dispose() {
     // CanvasTexture upload left set, or the next renderer's empty 3D texture upload fails.
     const gl = renderer.getContext();
     if (gl && !gl.isContextLost()) { gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); }
-    renderer.dispose(); renderer = null;
+    renderer.dispose();
+    if (loseContext === true) { try { renderer.forceContextLoss(); } catch { /* ignore */ } }
+    renderer = null;
   }
   dotnet = null; hover = -1;
   world = null; cam = null; canvas = null;

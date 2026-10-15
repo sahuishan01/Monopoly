@@ -122,7 +122,7 @@
         Settings.Changed -= OnSettings;
         if (module != null)
         {
-            try { await module.InvokeVoidAsync("dispose"); await module.DisposeAsync(); }
+            try { await module.InvokeVoidAsync("dispose", true); await module.DisposeAsync(); }
             catch (Exception e) when (e is JSDisconnectedException or JSException) { }
         }
     }

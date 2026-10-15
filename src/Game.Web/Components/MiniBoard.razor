@@ -1,0 +1,38 @@
+@* Small static board map from a board definition: district-coloured tiles round a crest. Used as the Lobby board
+   preview and, with Animated, as the no-WebGL Home hero (tiles light up in sequence). Decorative unless Label is set. *@
+@{
+    int n = Board.Tiles.Count;
+    int side = n / 4;
+}
+<div class="miniboard @(Animated ? "anim" : "") @Class" style="--dim:@(side + 1);--n:@n"
+     role="@(Label != null ? "img" : null)" aria-label="@Label" aria-hidden="@(Label == null ? "true" : null)">
+  @for (int i = 0; i < n; i++)
+  {
+    var def = Board.Tiles[i];
+    var (row, col) = TileGrid.Cell(i, side);
+    int di = Board.DistrictIndex(def.District);
+    string color = di >= 0 ? Board.Districts[di].Color : "";
+    bool corner = (row == 0 || row == side) && (col == 0 || col == side);
+    string style = $"grid-row:{row + 1};grid-column:{col + 1};--i:{i}" + (color != "" ? ";--d:" + color : "");
+    <span class="mb-tile k-@def.Type.ToString().ToLowerInvariant() @(corner ? "corner" : "") @(color != "" ? "has-d" : "")"
+          style="@style">
+      @if (corner) { <span class="mb-ico">@Board2D.Icon(def.Type)</span> }
+    </span>
+  }
+  <span class="mb-center" style="grid-row:2 / span @(side - 1);grid-column:2 / span @(side - 1)">
+    <svg class="mb-crest" viewBox="0 0 64 40" aria-hidden="true">
+      <path d="M6 34V18l8 6 8-14 10 12 10-12 8 14 8-6v16z" />
+      <circle cx="32" cy="6" r="3" />
+    </svg>
+    @if (Caption != null) { <span class="mb-caption">@Caption</span> }
+  </span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public BoardDefinition Board { get; set; } = null!;
+    [Parameter] public bool Animated { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Caption { get; set; }
+    /// <summary>Accessible name; when null the map is hidden from assistive technology.</summary>
+    [Parameter] public string? Label { get; set; }
+}

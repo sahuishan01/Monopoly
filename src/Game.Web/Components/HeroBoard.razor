@@ -1,0 +1,139 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+@inject SettingsService Settings
+@inject HttpClient Http
+@* Decorative Home backdrop. hero-policy.js picks the mode from the same device rules as Auto quality:
+   "gl" runs hero3d.js (the 3D board playing a scripted demo game, 30 fps, paused when hidden or scrolled away);
+   "css" is the animated CSS mini-board; "still" is the same without motion (reduced motion). Never interactive. *@
+<div class="herobg mode-@mode" aria-hidden="true">
+  @if (mode == "gl")
+  {
+    <canvas @ref="canvas" class="herobg-gl"></canvas>
+  }
+  else if (mode is "css" or "still")
+  {
+    <div class="herobg-stage">
+      <div class="herobg-tilt">
+        <MiniBoard Board="board" Animated="@(mode == "css")" Class="herobg-board" />
+      </div>
+      <span class="hdie d1"><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="hdie d2"><i></i><i></i><i></i></span>
+    </div>
+  }
+  <div class="herobg-orbs"><i></i><i></i></div>
+  <div class="herobg-scrim"></div>
+</div>
+
+@code {
+    private static readonly BoardDefinition board = BoardLibrary.Get(BoardLibrary.DefaultBoardId);
+    private string mode = "pending";
+    private ElementReference canvas;
+    private IJSObjectReference? policy, hero, handle;
+    private bool disposed, glPending;
+    private int gen;
+    private string? appliedTheme;
+    private string appliedQuality = "";
+    private bool appliedReduce;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (firstRender)
+            {
+                Settings.Changed += OnSettings;
+                await Settings.EnsureLoadedAsync();
+                if (disposed) return;
+                policy = await Js.InvokeAsync<IJSObjectReference>("import", "./js/hero-policy.js");
+                if (disposed) return;
+                await Decide();
+                return;
+            }
+            if (glPending && mode == "gl")
+            {
+                glPending = false;
+                await StartGl();
+            }
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException)
+        {
+            if (!disposed && mode != "css") { mode = "css"; StateHasChanged(); }
+        }
+    }
+
+    private async Task Decide()
+    {
+        if (policy == null || disposed) return;
+        appliedQuality = Settings.Quality; appliedReduce = Settings.ReduceMotion;
+        var next = await policy.InvokeAsync<string>("detect", Settings.Quality, Settings.ReduceMotion);
+        if (disposed || next == mode) return;
+        gen++;
+        await StopGl();
+        mode = next;
+        glPending = mode == "gl";
+        StateHasChanged();
+    }
+
+    private async Task StartGl()
+    {
+        int my = gen;
+        hero ??= await Js.InvokeAsync<IJSObjectReference>("import", "./js/hero3d.js");
+        if (disposed || mode != "gl") return;
+        string? theme = null;
+        try { theme = await Http.GetStringAsync($"themes/{Settings.Theme}.json"); } catch { }
+        if (disposed || mode != "gl") return;
+        if (my != gen) return;
+        appliedTheme = Settings.Theme;
+        // GL is only chosen for High or for Auto on a roomy, many-core device, so it always gets the full look.
+        var h = await hero.InvokeAsync<IJSObjectReference?>("start", canvas, DisplayPayload.Board(board), theme, "{\"quality\":\"high\"}");
+        if (disposed || mode != "gl" || my != gen)
+        {
+            if (h != null) { try { await h.InvokeVoidAsync("dispose"); await h.DisposeAsync(); } catch { } }
+            return;
+        }
+        if (h == null) { mode = "css"; StateHasChanged(); return; }
+        handle = h;
+    }
+
+    private async Task StopGl()
+    {
+        var h = handle;
+        handle = null;
+        if (h == null) return;
+        try { await h.InvokeVoidAsync("dispose"); await h.DisposeAsync(); }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
+    }
+
+    private async void OnSettings()
+    {
+        try
+        {
+            if (disposed || policy == null) return;
+            if (Settings.Quality != appliedQuality || Settings.ReduceMotion != appliedReduce)
+            {
+                await InvokeAsync(Decide);
+                return;
+            }
+            if (handle != null && Settings.Theme != appliedTheme)
+            {
+                appliedTheme = Settings.Theme;
+                var json = await Http.GetStringAsync($"themes/{Settings.Theme}.json");
+                if (!disposed && handle != null && appliedTheme == Settings.Theme) await handle.InvokeVoidAsync("setTheme", json);
+            }
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException or HttpRequestException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        disposed = true;
+        Settings.Changed -= OnSettings;
+        await StopGl();
+        try
+        {
+            if (hero != null) await hero.DisposeAsync();
+            if (policy != null) await policy.DisposeAsync();
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { }
+    }
+}
