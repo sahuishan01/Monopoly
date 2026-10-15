@@ -2,54 +2,226 @@
 @implements IDisposable
 @inject Session Session
 @inject NavigationManager Nav
+@inject IJSRuntime Js
+@inject SettingsService Settings
 
-<main class="lobby">
-  @if (game == null) { <p>Connecting…</p> }
+<main class="lobby @(Settings.ReduceMotion ? "rm" : "")">
+  <div class="lobby-bg" aria-hidden="true"><i></i><i></i></div>
+  @if (game == null)
+  {
+    <div class="lobby-wait glass" role="status"><span class="spinner" aria-hidden="true"></span>Connecting…</div>
+  }
   else if (game.UpdateRequired != null)
   {
-    <p class="error" role="alert">This version is out of date. <button @onclick="Reload">Refresh</button> to update.</p>
+    <p class="error lobby-wait glass" role="alert">This version is out of date. <button class="primary" @onclick="Reload">Refresh</button> to update.</p>
   }
   else if (game.Client.Lobby is { } lobby)
   {
-    <h1>@lobby.RoomName <small>#@lobby.RoomCode</small></h1>
-    <section class="card">
-      <h2>Players</h2>
-      <ul>
-        @foreach (var seat in lobby.Seats)
+    var board = BoardFor(lobby.BoardId);
+    int ready = lobby.Seats.Count(s => s.Ready);
+    var me = lobby.Seats.FirstOrDefault(s => s.PeerId == game.Client.PeerId && !s.IsBot);
+    bool meReady = me?.Ready == true;
+    bool isHost = game.Client.IsHost;
+    bool allReady = lobby.Seats.Count >= 2 && ready == lobby.Seats.Count;
+
+    <header class="lobby-top rise" style="--i:0">
+      <div class="lobby-title">
+        <p class="kicker">Lobby · @lobby.Rules.PresetName</p>
+        <h1>@lobby.RoomName</h1>
+      </div>
+      <button type="button" class="icon-btn" aria-label="Settings" title="Settings" @onclick="() => settingsOpen = true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+      </button>
+    </header>
+
+    <section class="room-code glass rise" style="--i:1" aria-labelledby="code-label">
+      <div class="code-text">
+        <span id="code-label" class="kicker">Room code</span>
+        <span class="code" aria-describedby="code-label">#@lobby.RoomCode</span>
+        <span class="hint">Friends join from the home screen with this code.</span>
+      </div>
+      <button type="button" class="ghost copy @(copied ? "done" : "")" @onclick="() => Copy(lobby.RoomCode)" aria-label="Copy room code">
+        @if (copied)
         {
-          <li>
-            <span>@seat.Name @(seat.IsBot ? "(bot)" : "") @(seat.Ready ? "✓" : "")</span>
-            @if (game.Client.IsHost && seat.PeerId != game.Client.PeerId)
-            {
-              <button @onclick="() => game.Client.Kick(seat.Seat)">Remove</button>
-            }
-          </li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5" /></svg><span>Copied</span>
         }
-      </ul>
-      <div class="row">
-        <button @onclick="() => game.Client.SetReady(true)">Ready</button>
-        @if (game.Client.IsHost)
+        else
         {
-          <button @onclick="() => game.Client.AddBot(BotLevel.Medium)">Add bot</button>
-          <button @onclick="() => game.Client.StartMatch()">Start match</button>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></svg><span>Copy</span>
+        }
+      </button>
+    </section>
+
+    <div class="lobby-grid">
+      <section class="seats-panel glass rise" style="--i:2" aria-labelledby="players-title">
+        <header class="panel-head">
+          <h2 id="players-title">Players</h2>
+          <span class="ready-count @(allReady ? "all" : "")">@ready/@lobby.Seats.Count ready</span>
+        </header>
+        <ul class="seats">
+          @foreach (var seat in lobby.Seats)
+          {
+            bool mine = seat.PeerId == game.Client.PeerId && !seat.IsBot;
+            bool host = !seat.IsBot && seat.PeerId == lobby.HostPeerId;
+            <li @key="seat.Seat" class="seat @(seat.Ready ? "ready" : "") @(mine ? "me" : "") @(seat.IsBot ? "bot" : "") @(!seat.Connected ? "away" : "")" style="--o:@seat.Seat">
+              <span class="seat-avatar">
+                <span class="avatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="@Board2D.PawnPath(seat.Token)" /></svg></span>
+                @if (host)
+                {
+                  <span class="crown" title="Host"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5z" /></svg></span>
+                }
+              </span>
+              <span class="seat-info">
+                <span class="seat-name">@seat.Name</span>
+                <span class="tags">
+                  @if (mine) { <span class="tag you">You</span> }
+                  @if (host) { <span class="tag host">Host</span> }
+                  @if (seat.IsBot) { <span class="tag bot lv-@seat.BotLevel.ToString().ToLowerInvariant()">Bot · @seat.BotLevel</span> }
+                  @if (!seat.Connected) { <span class="tag bad">Offline</span> }
+                </span>
+              </span>
+              <span class="seat-state">
+                @if (seat.Ready)
+                {
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5 9 17.5 20 6.5" /></svg><span>Ready</span>
+                }
+                else { <span>Not ready</span> }
+              </span>
+              @if (isHost && seat.PeerId != game.Client.PeerId)
+              {
+                <button type="button" class="icon-btn kick" aria-label="@($"Remove {seat.Name}")" title="Remove" @onclick="() => game.Client.Kick(seat.Seat)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                </button>
+              }
+            </li>
+          }
+          @if (lobby.Seats.Count < SeatCap)
+          {
+            <li class="seat empty">
+              <span class="seat-avatar"><span class="avatar ghost-av" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg></span></span>
+              <span class="seat-info">
+                <span class="seat-name">Open seat</span>
+                <span class="seat-sub">@(isHost ? "Add a bot or invite a friend" : "Waiting for players…")</span>
+              </span>
+              @if (isHost)
+              {
+                <span class="add-ctl">
+                  <select @bind="botLevel" aria-label="Bot level">
+                    @foreach (var l in Enum.GetValues<BotLevel>()) { <option value="@l">@l</option> }
+                  </select>
+                  <button type="button" class="ghost add-bot" @onclick="AddBot">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>Add bot
+                  </button>
+                </span>
+              }
+              else { <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span> }
+            </li>
+          }
+        </ul>
+      </section>
+
+      <aside class="lobby-side">
+        <section class="glass rules-panel rise" style="--i:3" aria-labelledby="rules-title">
+          <h2 id="rules-title">Rules</h2>
+          <ul class="rule-chips">
+            @foreach (var c in LobbyText.RuleChips(lobby.Rules, board?.Currency ?? "$"))
+            {
+              <li class="rchip k-@c.Kind"><span class="rk">@c.Label</span><span class="rv">@c.Value</span></li>
+            }
+          </ul>
+        </section>
+        <section class="glass board-panel rise" style="--i:4" aria-labelledby="board-title">
+          <h2 id="board-title">@(board?.Name ?? lobby.BoardId)</h2>
+          @if (board != null)
+          {
+            <MiniBoard Board="board" Class="lobby-map" Label="@($"{board.Name} board map")" />
+            <ul class="districts" aria-label="Districts">
+              @foreach (var d in board.Districts)
+              {
+                <li style="--d:@d.Color"><span class="sw" aria-hidden="true"></span>@d.Name</li>
+              }
+            </ul>
+          }
+        </section>
+      </aside>
+    </div>
+
+    <footer class="lobby-actions glass rise" style="--i:5">
+      <p class="status" role="status">@LobbyText.ReadyStatus(lobby.Seats.Count, ready, isHost)</p>
+      <div class="action-row">
+        <button type="button" class="ready-btn @(meReady ? "on" : "") @(isHost ? "ghost" : "primary big")" aria-pressed="@(meReady ? "true" : "false")"
+                @onclick="() => game.Client.SetReady(!meReady)">
+          <span class="ready-dot" aria-hidden="true"></span>Ready
+        </button>
+        @if (isHost)
+        {
+          <button type="button" class="primary big start @(allReady ? "go" : "")" @onclick="() => game.Client.StartMatch()">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+            Start match
+          </button>
         }
       </div>
-    </section>
+    </footer>
+    <Toasts @ref="toasts" Game="game" />
   }
-  else { <p>Joining room…</p> }
-  @if (error != null) { <p class="error" role="alert">@error</p> }
+  else
+  {
+    <div class="lobby-wait glass" role="status"><span class="spinner" aria-hidden="true"></span>Joining room…</div>
+  }
+  @if (error != null) { <p class="error lobby-error" role="alert">@error</p> }
 </main>
+@if (settingsOpen) { <div @onkeydown="OnKey"><SettingsSheet OnClose="() => settingsOpen = false" /></div> }
 
 @code {
     [Parameter] public string Code { get; set; } = "";
     [SupplyParameterFromQuery] public int? Bots { get; set; }
     [SupplyParameterFromQuery] public string? Level { get; set; }
+    private const int SeatCap = 6;
     private bool autoStarted;
     private GameSession? game;
     private string? error;
     private bool navigated;
+    private bool settingsOpen;
+    private bool copied;
+    private int copySeq;
+    private BotLevel botLevel = BotLevel.Medium;
+    private Toasts? toasts;
 
     private void Reload() => Nav.NavigateTo(Nav.Uri, forceLoad: true);
+
+    private static BoardDefinition? BoardFor(string id)
+    {
+        try { return BoardLibrary.Get(id); } catch (ArgumentException) { return null; }
+    }
+
+    private void AddBot() => game?.Client.AddBot(botLevel);
+
+    private void OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") settingsOpen = false;
+    }
+
+    private async Task Copy(string code)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("navigator.clipboard.writeText", code);
+            copied = true;
+            toasts?.Show($"Room code {code} copied");
+            StateHasChanged();
+            int seq = ++copySeq;
+            await Task.Delay(1800);
+            if (seq == copySeq) copied = false;
+        }
+        catch (JSException)
+        {
+            toasts?.Show($"Couldn't copy. The code is {code}", error: true);
+        }
+    }
+
+    private void OnSettings() => _ = InvokeAsync(StateHasChanged);
+
+    protected override void OnInitialized() => Settings.Changed += OnSettings;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -91,6 +263,7 @@
 
     public void Dispose()
     {
+        Settings.Changed -= OnSettings;
         if (game != null) game.Changed -= OnChanged;
     }
 }

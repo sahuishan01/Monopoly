@@ -1,0 +1,52 @@
+@implements IDisposable
+@inject SettingsService Settings
+@inject HttpClient Http
+@* Theme picker chips: each shows the theme's own colours; picking one applies it live and saves it. *@
+<div class="theme-chips" role="radiogroup" aria-label="Theme">
+  @foreach (var t in themes)
+  {
+    bool on = Settings.Theme == t.Id;
+    <button type="button" role="radio" aria-checked="@(on ? "true" : "false")" class="tchip @(on ? "on" : "")"
+            style="--sw-bg:@t.Bg;--sw-panel:@t.Panel;--sw-accent:@t.Accent;--sw-glow:@t.Glow"
+            @onclick="() => Pick(t.Id)">
+      <span class="tchip-dot" aria-hidden="true"></span>
+      <span>@t.Name</span>
+    </button>
+  }
+</div>
+
+@code {
+    private sealed record ThemeInfo(string Id, string Name, string Bg, string Panel, string Accent, string Glow);
+    private static List<ThemeInfo>? cache;
+    private List<ThemeInfo> themes = ThemeCatalog.Ids.Select(id => new ThemeInfo(id, Title(id), "#111", "#222", "#888", "#aaa")).ToList();
+
+    private static string Title(string id) => string.Join(' ', id.Split('-').Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+
+    protected override async Task OnInitializedAsync()
+    {
+        Settings.Changed += OnSettings;
+        if (cache != null) { themes = cache; return; }
+        var list = new List<ThemeInfo>();
+        foreach (var id in ThemeCatalog.Ids)
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(await Http.GetStringAsync($"themes/{id}.json"));
+                var r = doc.RootElement; var css = r.GetProperty("css");
+                string C(string k) => css.TryGetProperty(k, out var v) ? v.GetString() ?? "#888" : "#888";
+                list.Add(new ThemeInfo(id, r.TryGetProperty("name", out var n) ? n.GetString() ?? Title(id) : Title(id), C("--bg"), C("--panel"), C("--accent"), C("--glow")));
+            }
+            catch { list.Add(themes.First(t => t.Id == id)); }
+        }
+        themes = cache = list;
+    }
+
+    private async Task Pick(string id)
+    {
+        await Settings.SetThemeAsync(id);
+        await Settings.SaveAsync();
+    }
+
+    private void OnSettings() => _ = InvokeAsync(StateHasChanged);
+    public void Dispose() => Settings.Changed -= OnSettings;
+}

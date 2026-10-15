@@ -13,9 +13,6 @@ li { display: flex; justify-content: space-between; align-items: center; padding
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
 select { background: #0e1219; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: .5rem; }
-.hero { text-align: center; padding: 1.5rem 0 .5rem; }
-.hero h1 { font-size: 2.4rem; margin: 0; letter-spacing: -.02em; }
-.hero p { color: var(--muted); margin: .4rem 0 0; }
 .card h2 { margin: 0 0 .25rem; font-size: 1.05rem; }
 .card .hint { color: var(--muted); font-size: .85rem; margin: 0 0 .5rem; }
 .card.primary { border-color: var(--accent); }
