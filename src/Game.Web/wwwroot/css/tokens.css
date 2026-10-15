@@ -18,3 +18,6 @@
   --coin-edge: #a2701a;
   --dust: color-mix(in srgb, var(--text) 80%, transparent);
 }
+
+/* theme.js sets this for two frames while it swaps the theme tokens (see the note there) */
+html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after { transition: none !important; }
