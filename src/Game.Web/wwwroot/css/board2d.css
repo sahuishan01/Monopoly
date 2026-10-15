@@ -1,11 +1,250 @@
-/* board and tokens */
-.board2d { width: min(100%, calc(100vh - 90px)); display: grid; grid-template-columns: repeat(var(--dim), 1fr); grid-template-rows: repeat(var(--dim), 1fr); aspect-ratio: 1; gap: 2px; max-width: 100%; }
-.tile { position: relative; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--text); font-size: clamp(7px, .72vw, 9.5px); padding: 2px; border-radius: 4px; overflow: hidden; text-align: left; }
-.tile.mortgaged { opacity: .45; }
-.tile .name { display: block; line-height: 1.1; }
-.tile .owner, .tile .tok { font-size: 9px; border-radius: 6px; padding: 0 3px; margin-right: 2px; }
-.tokens { position: absolute; bottom: 2px; left: 2px; }
-.tok { font-style: normal; background: var(--accent); color: #04130d; }
-.center { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0e1219; border-radius: 8px; }
-.o0{background:#f87171}.o1{background:#60a5fa}.o2{background:#fbbf24}.o3{background:#a78bfa}.o4{background:#f472b6}.o5{background:#2dd4bf}.o6{background:#fb923c}.o7{background:#a3e635}
-.board3d { width: min(100%, calc(100vh - 90px)); aspect-ratio: 1; touch-action: none; cursor: grab; border-radius: 12px; background: #0b0d12; }
+/* ===== 2D board ===== */
+.b2d {
+  --pad: clamp(5px, 1.6%, 14px);
+  position: relative; width: min(100%, calc(100vh - 90px)); max-width: 100%; aspect-ratio: 1; padding: var(--pad);
+  border-radius: clamp(10px, 2.2%, 22px);
+  background:
+    radial-gradient(60% 60% at 50% 50%, color-mix(in srgb, var(--glow) 16%, transparent), transparent 70%),
+    linear-gradient(145deg, var(--felt), var(--felt-deep));
+  box-shadow: 0 0 0 1px var(--line), 0 0 0 calc(var(--pad) * .35) color-mix(in srgb, var(--bg) 70%, #000),
+    0 24px 70px -24px color-mix(in srgb, var(--glow) 55%, transparent), inset 0 0 50px rgba(0, 0, 0, .45);
+  isolation: isolate; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.b2d-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.board2d { position: relative; width: 100%; height: 100%; display: grid; gap: clamp(1px, .3%, 3px); }
+
+/* ---- tiles ---- */
+.board2d .tile {
+  container: tile / size; position: relative; min-width: 0; min-height: 0; padding: 0; margin: 0; overflow: hidden;
+  font: inherit; font-weight: 500; color: var(--text); text-align: center; cursor: pointer;
+  border: 1px solid var(--tile-edge); border-radius: clamp(3px, 9cqmin, 9px);
+  background:
+    radial-gradient(130% 70% at 50% 0%, color-mix(in srgb, var(--d, var(--glow)) 16%, transparent), transparent 65%),
+    repeating-linear-gradient(135deg, color-mix(in srgb, var(--line) 45%, transparent) 0 1px, transparent 1px 6px),
+    linear-gradient(180deg, var(--tile-hi), var(--tile-lo));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 2px 6px -2px rgba(0, 0, 0, .7);
+  transition: transform .18s cubic-bezier(.2, .8, .3, 1.4), box-shadow .18s ease, filter .18s ease;
+}
+.board2d .tile.corner {
+  background:
+    radial-gradient(90% 90% at 50% 50%, color-mix(in srgb, var(--kc, var(--accent)) 18%, transparent), transparent 70%),
+    repeating-radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--line) 50%, transparent) 0 1px, transparent 1px 7px),
+    linear-gradient(160deg, var(--tile-hi), var(--tile-lo));
+}
+.board2d .tile:hover, .board2d .tile:focus-visible {
+  z-index: 5; transform: translateY(-3px) scale(1.07); filter: brightness(1.12);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, .8), 0 0 0 1px var(--accent), 0 0 18px -2px var(--glow);
+}
+.board2d .tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.board2d .tile:active { transform: scale(.97); }
+
+.tile .tcard { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: stretch; }
+.tile.et .tcard { flex-direction: column-reverse; }
+.tile.el .tcard, .tile.er .tcard { inset: auto; left: 50%; top: 50%; width: 100cqh; height: 100cqw; translate: -50% -50%; rotate: 90deg; }
+.tile.er .tcard { rotate: -90deg; }
+
+.tile .band {
+  position: relative; flex: 0 0 25%; min-height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, .22)),
+    var(--d, var(--muted));
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .35), 0 0 12px -2px color-mix(in srgb, var(--d, transparent) 70%, transparent);
+}
+.tile.et .band { box-shadow: inset 0 1px 0 rgba(0, 0, 0, .35), 0 0 12px -2px color-mix(in srgb, var(--d, transparent) 70%, transparent); }
+.tile .bld { position: absolute; inset: 12% 5%; display: flex; gap: 5%; align-items: flex-end; justify-content: center; }
+.tile .bld svg { flex: 0 1 auto; height: 100%; width: auto; min-width: 0; aspect-ratio: 1; overflow: visible; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .55)); }
+.tile .bld svg.tower { aspect-ratio: 12 / 14; }
+.tile .house path { fill: var(--house); stroke: var(--house-edge); stroke-width: .8; }
+.tile .tower path { fill: var(--tower); stroke: var(--house-edge); stroke-width: .7; }
+.tile .tower .win { fill: color-mix(in srgb, var(--bg) 80%, transparent); stroke: none; }
+
+.tile .ico { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding-top: 6%; color: var(--kc, var(--accent)); }
+.tile .ico svg {
+  width: clamp(10px, 46cqmin, 64px); height: auto; max-height: 100%; fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 4px color-mix(in srgb, currentColor 55%, transparent));
+}
+.tile.k-utility .ico svg, .tile.k-fortune .ico svg { fill: color-mix(in srgb, currentColor 22%, transparent); }
+.tile.corner .ico { flex: 0 0 auto; padding-top: 12%; }
+.tile.corner .ico svg { width: clamp(16px, 44cqmin, 72px); }
+.tile.corner .tcard { justify-content: center; gap: 3%; }
+
+.tile .name {
+  flex: 1 1 auto; min-height: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  padding: 4% 6% 0; font-size: clamp(5.5px, calc(14.5cqmin * var(--nf, 1)), 13px); line-height: 1.12; letter-spacing: .01em; font-weight: 600;
+  overflow-wrap: break-word; hyphens: auto; -webkit-hyphens: auto; text-shadow: 0 1px 1px rgba(0, 0, 0, .6);
+}
+.tile.has-d .name { align-content: center; padding-top: 8%; }
+.tile:not(.k-street) .name { flex: 0 1 auto; }
+.tile.corner .name { flex: 0 0 auto; font-size: clamp(5px, calc(11.5cqmin * var(--nf, 1)), 14px); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 0 8%; }
+.tile .price {
+  flex: 0 0 auto; padding: 0 0 7%; font-size: clamp(6px, 13.5cqmin, 12.5px); font-weight: 700; color: var(--price);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+}
+.tile.et .price { padding: 7% 0 0; }
+.tile.k-tax .price { color: var(--bad); }
+
+/* kind colours (icons, corner glows) */
+.tile.k-start { --kc: var(--accent); }
+.tile.k-transit { --kc: var(--text); }
+.tile.k-utility { --kc: var(--coin); }
+.tile.k-tax { --kc: var(--bad); }
+.tile.k-fortune { --kc: var(--glow); }
+.tile.k-civic { --kc: var(--accent); }
+.tile.k-jail { --kc: var(--muted); }
+.tile.k-gotojail { --kc: var(--bad); }
+.tile.k-plaza { --kc: var(--glow); }
+
+/* small tiles: drop the name (aria-label and the property panel carry it), enlarge the essentials */
+@container tile (max-width: 44px) or (max-height: 44px) {
+  .tile:not(.corner) .name { display: none; }
+  .tile .band { flex-basis: 30%; }
+  .tile.k-street .tcard::after { content: ""; flex: 1 1 auto; }
+  .tile .price { font-size: clamp(6px, 19cqmin, 10px); padding-bottom: 10%; }
+  .tile .ico svg { width: clamp(10px, 56cqmin, 30px); }
+}
+
+/* ownership */
+.tile.owned { --oc: hsl(calc(var(--o) * 61.2deg) 80% 60%); box-shadow: inset 0 0 0 2px var(--oc), 0 0 10px -3px var(--oc), 0 2px 6px -2px rgba(0, 0, 0, .7); }
+.tile.owned:hover, .tile.owned:focus-visible { box-shadow: inset 0 0 0 2px var(--oc), 0 12px 24px -8px rgba(0, 0, 0, .8), 0 0 18px -2px var(--oc); }
+.tile .ownbar { position: absolute; left: 0; right: 0; bottom: 0; height: 6%; min-height: 2px; background: linear-gradient(90deg, transparent, var(--oc) 20%, var(--oc) 80%, transparent); box-shadow: 0 0 8px var(--oc); }
+.tile.et .ownbar { bottom: auto; top: 0; }
+.tile.owned .price { padding-bottom: 11%; }
+.tile.owned.et .price { padding: 11% 0 0; }
+
+/* mortgaged: desaturated with diagonal stripes */
+.tile.mortgaged .tcard { filter: grayscale(.9) brightness(.62); }
+.tile.mortgaged::before {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--bad) 40%, transparent) 0 3px, transparent 3px 9px);
+}
+/* ownership sweep layer (animated from board2d-fx.js) */
+.board2d .tile::after { content: ""; position: absolute; inset: 0; z-index: 3; opacity: 0; pointer-events: none; }
+
+/* ---- centre ---- */
+.board2d .center {
+  position: relative; container-type: size; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4cqmin; border-radius: clamp(6px, 3cqmin, 18px); margin: 3%;
+  background:
+    radial-gradient(70% 60% at 50% 40%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--panel) 70%, transparent), color-mix(in srgb, var(--bg) 85%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent), inset 0 0 40px rgba(0, 0, 0, .5);
+}
+.center-art { position: absolute; inset: 0; pointer-events: none; }
+.center-art::before {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 92cqmin; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 8%, var(--accent) 14%, transparent 24% 46%, var(--glow) 56%, transparent 66% 100%);
+  -webkit-mask: radial-gradient(closest-side, transparent 93%, #000 94% 99%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 93%, #000 94% 99%, transparent 100%);
+  opacity: .65; animation: b2d-spin 28s linear infinite;
+}
+.center-art::after {
+  content: ""; position: absolute; inset: 0; opacity: .5;
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--line) 55%, transparent) 0 1px, transparent 1px 7cqmin),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--line) 55%, transparent) 0 1px, transparent 1px 7cqmin);
+  -webkit-mask: radial-gradient(closest-side, #000, transparent);
+  mask: radial-gradient(closest-side, #000, transparent);
+}
+.brand { position: relative; display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.brand .crest { width: clamp(26px, 22cqmin, 110px); height: auto; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 60%, transparent)); }
+.brand .crest .gem { fill: var(--accent); }
+.brand .word {
+  margin-top: 1.5cqmin; font-size: clamp(11px, 9.5cqmin, 46px); font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--text);
+  text-shadow: 0 2px 12px color-mix(in srgb, var(--glow) 45%, transparent);
+}
+.brand .word b {
+  font-weight: 900; background: linear-gradient(90deg, var(--accent), var(--glow)); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.brand .bname { margin-top: 1.6cqmin; font-size: clamp(7px, 3.2cqmin, 13px); letter-spacing: .32em; text-transform: uppercase; color: var(--muted); }
+
+/* ---- dice tray ---- */
+.dicetray { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3.5cqmin; }
+.dice { display: flex; gap: 6cqmin; perspective: 520px; padding-top: 2cqmin; }
+.die { --ds: clamp(20px, 14cqmin, 66px); position: relative; width: var(--ds); height: var(--ds); transform-style: preserve-3d; }
+.cube {
+  position: absolute; inset: 0; transform-style: preserve-3d;
+  transform: translateY(0) rotateX(-18deg) rotateY(24deg) rotateX(var(--ex)) rotateY(var(--ey));
+}
+.cube.roll { animation: b2d-roll .95s cubic-bezier(.22, .7, .3, 1) var(--delay, 0ms) both; }
+.face {
+  position: absolute; inset: 0; display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); padding: 15%; border-radius: 20%;
+  background: radial-gradient(circle at 30% 25%, #fff, var(--die) 55%, var(--die-edge));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12), inset 0 -3px 6px rgba(0, 0, 0, .16);
+  backface-visibility: hidden;
+}
+.face.f1 { transform: translateZ(calc(var(--ds) / 2)); }
+.face.f6 { transform: rotateY(180deg) translateZ(calc(var(--ds) / 2)); }
+.face.f2 { transform: rotateY(90deg) translateZ(calc(var(--ds) / 2)); }
+.face.f5 { transform: rotateY(-90deg) translateZ(calc(var(--ds) / 2)); }
+.face.f3 { transform: rotateX(90deg) translateZ(calc(var(--ds) / 2)); }
+.face.f4 { transform: rotateX(-90deg) translateZ(calc(var(--ds) / 2)); }
+.face i { width: 78%; aspect-ratio: 1; place-self: center; border-radius: 50%; background: var(--pip); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .7), 0 1px 0 rgba(255, 255, 255, .6); }
+.face.f1 i { grid-area: 2 / 2; width: 100%; background: var(--pip-one); }
+.face.f2 i:nth-child(1), .face.f3 i:nth-child(1) { grid-area: 1 / 1; }
+.face.f2 i:nth-child(2), .face.f3 i:nth-child(3) { grid-area: 3 / 3; }
+.face.f3 i:nth-child(2) { grid-area: 2 / 2; }
+.face.f4 i:nth-child(1), .face.f5 i:nth-child(1), .face.f6 i:nth-child(1) { grid-area: 1 / 1; }
+.face.f4 i:nth-child(2), .face.f5 i:nth-child(2), .face.f6 i:nth-child(2) { grid-area: 1 / 3; }
+.face.f4 i:nth-child(3), .face.f5 i:nth-child(3), .face.f6 i:nth-child(3) { grid-area: 3 / 1; }
+.face.f4 i:nth-child(4), .face.f5 i:nth-child(4), .face.f6 i:nth-child(4) { grid-area: 3 / 3; }
+.face.f5 i:nth-child(5) { grid-area: 2 / 2; }
+.face.f6 i:nth-child(5) { grid-area: 2 / 1; }
+.face.f6 i:nth-child(6) { grid-area: 2 / 3; }
+.die-shadow {
+  position: absolute; left: 8%; right: 8%; bottom: -18%; height: 22%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .55), transparent); transform: translateZ(-1px);
+}
+.turnline {
+  --pc: hsl(calc(var(--o) * 61.2deg) 80% 60%);
+  display: flex; align-items: center; gap: 1.6cqmin; max-width: 86cqw; padding: 1cqmin 2.6cqmin 1cqmin 1.4cqmin; border-radius: 999px;
+  font-size: clamp(9px, 4.4cqmin, 16px); background: color-mix(in srgb, var(--panel) 80%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--pc) 60%, transparent), 0 0 16px -4px var(--pc);
+}
+.turnline svg { width: 1.5em; height: 1.5em; flex: none; }
+.turnline .who { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.turnline .rnd { white-space: nowrap; color: var(--muted); font-size: .82em; font-variant-numeric: tabular-nums; }
+.turnline .fill, .pawn .fill { fill: var(--pc); stroke: color-mix(in srgb, var(--pc) 35%, #000); stroke-width: 1.1; stroke-linejoin: round; paint-order: stroke; }
+.turnline .sheen, .pawn .sheen { fill: url(#b2d-sheen); opacity: .55; pointer-events: none; }
+
+/* ---- pawns ---- */
+.pawns { position: absolute; inset: var(--pad); pointer-events: none; z-index: 6; }
+.pawn {
+  --pc: hsl(calc(var(--o) * 61.2deg) 80% 60%);
+  position: absolute; width: calc(var(--u) * .56); aspect-ratio: 1; translate: -50% -66%;
+}
+.pawn::before {
+  content: ""; position: absolute; left: 14%; right: 14%; bottom: -6%; height: 22%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, .6), transparent);
+}
+.pawn-body { position: absolute; inset: 0; transform-origin: 50% 100%; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .55)); }
+.pawn-body svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.pawn.active { z-index: 2; }
+.pawn.active::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -14%; height: 40%; border-radius: 50%;
+  border: 2px solid var(--pc); box-shadow: 0 0 10px var(--pc); animation: b2d-ring 1.6s ease-out infinite;
+}
+
+/* ---- fx overlay ---- */
+.b2d-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 8; }
+.b2d-pop {
+  position: absolute; z-index: 9; pointer-events: none; font-weight: 800; font-size: clamp(11px, 1.6vw, 18px); white-space: nowrap;
+  color: var(--coin); text-shadow: 0 1px 0 var(--coin-edge), 0 0 10px rgba(0, 0, 0, .8); font-variant-numeric: tabular-nums;
+}
+
+@keyframes b2d-spin { to { rotate: 360deg; } }
+@keyframes b2d-ring { 0% { opacity: .9; scale: .7; } 100% { opacity: 0; scale: 1.5; } }
+@keyframes b2d-roll {
+  0% { transform: translateY(-90%) rotateX(-18deg) rotateY(24deg) rotateX(calc(var(--ex) + 720deg * var(--spin))) rotateY(calc(var(--ey) - 540deg)); }
+  50% { transform: translateY(0) rotateX(-18deg) rotateY(24deg) rotateX(calc(var(--ex) + 120deg * var(--spin))) rotateY(calc(var(--ey) - 60deg)); }
+  66% { transform: translateY(-22%) rotateX(-18deg) rotateY(24deg) rotateX(calc(var(--ex) + 30deg * var(--spin))) rotateY(calc(var(--ey) - 12deg)); }
+  82% { transform: translateY(0) rotateX(-18deg) rotateY(24deg) rotateX(calc(var(--ex) - 6deg * var(--spin))) rotateY(calc(var(--ey) + 4deg)); }
+  100% { transform: translateY(0) rotateX(-18deg) rotateY(24deg) rotateX(var(--ex)) rotateY(var(--ey)); }
+}
+
+/* reduced motion: system setting or the in-app toggle (board2d-fx.js adds .rm) */
+.b2d.rm *, .b2d.rm *::before, .b2d.rm *::after { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .b2d *, .b2d *::before, .b2d *::after { animation: none !important; transition: none !important; }
+}
+
+.board3d { width: min(100%, calc(100vh - 90px)); aspect-ratio: 1; touch-action: none; cursor: grab; border-radius: 12px; background: var(--bg); }

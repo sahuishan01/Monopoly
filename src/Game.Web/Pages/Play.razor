@@ -10,7 +10,7 @@
     <div class="stage">
       <button class="ghost" @onclick="ToggleView">@(use3d ? "2D" : "3D")</button>
       @if (use3d) { <Board3D Game="game" OnUnavailable="Fallback" OnTileClick="OnTile" /> }
-      else { <Board2D State="game.Display" Board="game.Board" OnTileClick="OnTile" /> }
+      else { <Board2D State="game.Display" Board="game.Board" Game="game" OnTileClick="OnTile" /> }
     </div>
     <div class="side">
       <Hud Game="game" />

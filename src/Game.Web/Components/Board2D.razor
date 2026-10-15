@@ -1,27 +1,103 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+@inject SettingsService Settings
 @{
-    int side = Board.Tiles.Count / 4;
+    int n = Board.Tiles.Count;
+    int side = n / 4;
     int dim = side + 1;
+    string tracks = BoardLayout2D.Tracks(side);
+    double unit = 100 / BoardLayout2D.Span(side);
+    var cur = State.CurrentPlayer >= 0 && State.CurrentPlayer < State.Players.Count ? State.Players[State.CurrentPlayer] : null;
 }
-<div class="board2d" style="--dim:@dim">
-  @for (int i = 0; i < Board.Tiles.Count; i++)
-  {
-    int tile = i;
-    var def = Board.Tiles[tile];
-    var (row, col) = TileGrid.Cell(tile, side);
-    var prop = State.Property(tile);
-    var here = State.Players.Where(p => !p.Bankrupt && p.Position == tile).ToList();
-    <button class="tile @(prop?.Mortgaged == true ? "mortgaged" : "")"
-            style="grid-row:@(row + 1);grid-column:@(col + 1)"
-            @onclick="() => OnTileClick.InvokeAsync(tile)" aria-label="@def.Name">
-      <span class="name">@def.Name</span>
-      @if (prop != null && prop.Owner >= 0) { <span class="owner o@(prop.Owner % 8)">P@(prop.Owner + 1)</span> }
-      @if (prop != null && prop.Level > 0) { <span class="level">@(prop.Level == 5 ? "★" : new string('▪', prop.Level))</span> }
-      <span class="tokens">@foreach (var p in here) { <i class="tok o@(p.Id % 8)">@(p.Id + 1)</i> }</span>
-    </button>
-  }
-  <div class="center" style="grid-row:2 / span @(dim - 2);grid-column:2 / span @(dim - 2)">
-    <div class="dice">@State.Die1 · @State.Die2</div>
-    <div class="round">Round @State.Round</div>
+<div class="b2d" @ref="root" style="--u:@Pct(unit)">
+  <svg class="b2d-defs" aria-hidden="true" focusable="false" width="0" height="0">
+    <defs>
+      <linearGradient id="b2d-sheen" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".75" />
+        <stop offset=".45" stop-color="#fff" stop-opacity=".12" />
+        <stop offset="1" stop-color="#000" stop-opacity=".25" />
+      </linearGradient>
+      <linearGradient id="b2d-word" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" style="stop-color:var(--accent)" />
+        <stop offset="1" style="stop-color:var(--glow)" />
+      </linearGradient>
+    </defs>
+  </svg>
+  <div class="board2d" style="--dim:@dim;grid-template-columns:@tracks;grid-template-rows:@tracks">
+    @for (int i = 0; i < n; i++)
+    {
+      int tile = i;
+      var def = Board.Tiles[tile];
+      var (row, col) = TileGrid.Cell(tile, side);
+      var prop = State.Property(tile);
+      string edge = (row == side || row == 0) && (col == side || col == 0) ? "corner" : row == side ? "eb" : col == 0 ? "el" : row == 0 ? "et" : "er";
+      int di = Board.DistrictIndex(def.District);
+      string district = di >= 0 ? Board.Districts[di].Color : "";
+      bool owned = prop != null && prop.Owner >= 0;
+      string style = $"grid-row:{row + 1};grid-column:{col + 1};--nf:{NameFit(def.Name, edge == "corner")}" + (district != "" ? ";--d:" + district : "") + (owned ? ";--o:" + prop!.Owner : "");
+      <button class="tile @edge k-@def.Type.ToString().ToLowerInvariant() @(owned ? "owned" : "") @(prop?.Mortgaged == true ? "mortgaged" : "") @(district != "" ? "has-d" : "")"
+              data-tile="@tile"
+              style="@style"
+              @onclick="() => OnTileClick.InvokeAsync(tile)" aria-label="@def.Name">
+        <span class="tcard">
+          @if (def.Type == TileType.Street)
+          {
+            <span class="band">
+              @if (prop != null && prop.Level > 0)
+              {
+                <span class="bld">
+                  @if (prop.Level >= 5)
+                  {
+                    <svg viewBox="0 0 12 14" class="tower"><path d="M3 13V4l3-3 3 3v9z" /><path class="win" d="M5 5h2v1.6H5zM5 8h2v1.6H5z" /></svg>
+                  }
+                  else
+                  {
+                    for (int h = 0; h < prop.Level; h++)
+                    {
+                      <svg viewBox="0 0 12 12" class="house"><path d="M1 6.2 6 1.5l5 4.7V11H1z" /></svg>
+                    }
+                  }
+                </span>
+              }
+            </span>
+          }
+          else
+          {
+            <span class="ico">@Icon(def.Type)</span>
+          }
+          <span class="name">@def.Name</span>
+          @if (def.Price > 0) { <span class="price">@Board.Currency@def.Price</span> }
+          else if (def.Type == TileType.Tax && def.TaxAmount > 0) { <span class="price">−@Board.Currency@def.TaxAmount</span> }
+          @if (owned) { <span class="ownbar"></span> }
+        </span>
+      </button>
+    }
+    <div class="center" style="grid-row:2 / span @(dim - 2);grid-column:2 / span @(dim - 2)">
+      <div class="center-art" aria-hidden="true"></div>
+      <div class="brand">
+        <svg class="crest" viewBox="0 0 64 40" aria-hidden="true">
+          <path d="M6 34V18l8 6 8-14 10 12 10-12 8 14 8-6v16z" fill="none" stroke="url(#b2d-word)" stroke-width="2.4" stroke-linejoin="round" />
+          <path d="M14 34v-7m10 7v-11m8 11v-14m8 14v-11m10 7v-7" stroke="url(#b2d-word)" stroke-width="2" stroke-linecap="round" opacity=".7" />
+          <circle cx="32" cy="6" r="3" class="gem" />
+        </svg>
+        <span class="word">Board<b>Empire</b></span>
+        <span class="bname">@Board.Name</span>
+      </div>
+      <DiceTray Die1="State.Die1" Die2="State.Die2" RollKey="rollKey" Round="State.Round"
+                PlayerName="@(cur?.Name ?? "")" PlayerId="@(cur?.Id ?? 0)" PlayerToken="@(cur?.Token ?? 0)" />
+    </div>
+  </div>
+  <div class="pawns" aria-hidden="true">
+    @foreach (var p in State.Players.Where(p => !p.Bankrupt))
+    {
+      var (x, y) = BoardLayout2D.PawnAt(State, p.Id, side);
+      <span @key="p.Id" class="pawn @(p.Id == State.CurrentPlayer ? "active" : "")" data-pawn="@p.Id"
+            style="left:@Pct(x);top:@Pct(y);--o:@p.Id">
+        <span class="pawn-body">
+          <svg viewBox="0 0 24 24"><path class="fill" d="@PawnPath(p.Token)" /><path class="sheen" d="@PawnPath(p.Token)" /></svg>
+        </span>
+      </span>
+    }
   </div>
 </div>
 
@@ -29,4 +105,172 @@
     [Parameter, EditorRequired] public GameState State { get; set; } = null!;
     [Parameter, EditorRequired] public BoardDefinition Board { get; set; } = null!;
     [Parameter] public EventCallback<int> OnTileClick { get; set; }
+    /// <summary>Optional session: when set, paced events drive pawn hops, dice rolls and particles.</summary>
+    [Parameter] public GameSession? Game { get; set; }
+
+    private const int BurstThreshold = 12;
+    private ElementReference root;
+    private IJSObjectReference? module, fx;
+    private bool disposed;
+    private int rollKey;
+    private int[] owners = Array.Empty<int>();
+    private GameState? seen;
+    private string? appliedOpts;
+
+    internal static string Pct(double v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "%";
+
+    /// <summary>Eight pawn silhouettes (24x24, base at the bottom), picked by the seat's token.</summary>
+    public static readonly string[] Pawns =
+    {
+        "M12 2a4 4 0 0 1 2.7 7H16l1.6 10H6.4L8 9h1.3A4 4 0 0 1 12 2zM5 20h14v3H5z",
+        "M6 3h3v2h2V3h2v2h2V3h3v5l-2 2v9H8v-9L6 8zM5 20h14v3H5z",
+        "M7 4h10l4 6-9 13L3 10z",
+        "M12 1.5l3.1 6.6 7.2.9-5.3 5 1.4 7.1L12 17.6l-6.4 3.5L7 14 1.7 9l7.2-.9z",
+        "M3 7l4.5 4.2L12 3l4.5 8.2L21 7l-2 12H5zM5 20h14v3H5z",
+        "M12 1.5l9 3.5v6.5c0 5.4-3.8 9.6-9 11.5-5.2-1.9-9-6.1-9-11.5V5z",
+        "M12 1.5l9 5.2v10.6l-9 5.2-9-5.2V6.7z",
+        "M12 1.5c4.2 3.6 6.4 8 6.4 12a6.4 6.4 0 0 1-12.8 0c0-4 2.2-8.4 6.4-12z",
+    };
+
+    /// <summary>Font scale so the longest word of a tile name fits the card width without breaking mid-word.</summary>
+    internal static string NameFit(string name, bool corner)
+    {
+        int longest = name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w.Length).DefaultIfEmpty(1).Max();
+        double fit = Math.Min(1, 8.0 / Math.Max(1, longest));
+        return fit.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    public static string PawnPath(int token) => Pawns[((token % Pawns.Length) + Pawns.Length) % Pawns.Length];
+
+    private static MarkupString Icon(TileType t) => new(t switch
+    {
+        TileType.Start => "<svg viewBox=\"0 0 24 24\"><path d=\"M21 12H5M11 5l-7 7 7 7\"/><path d=\"M21 6v12\" opacity=\".5\"/></svg>",
+        TileType.Transit => "<svg viewBox=\"0 0 24 24\"><rect x=\"6\" y=\"3\" width=\"12\" height=\"13\" rx=\"3\"/><path d=\"M6 10h12M9 19l-2 3M15 19l2 3\"/><circle cx=\"9.5\" cy=\"13\" r=\".9\"/><circle cx=\"14.5\" cy=\"13\" r=\".9\"/></svg>",
+        TileType.Utility => "<svg viewBox=\"0 0 24 24\"><path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/></svg>",
+        TileType.Tax => "<svg viewBox=\"0 0 24 24\"><path d=\"M6 3h12l4 6-10 12L2 9z\"/><path d=\"M2 9h20M10 3 8 9l4 12 4-12-2-6\"/></svg>",
+        TileType.Fortune => "<svg viewBox=\"0 0 24 24\"><path d=\"M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z\"/></svg>",
+        TileType.Civic => "<svg viewBox=\"0 0 24 24\"><path d=\"M3 9l9-6 9 6M5 10v8M9.7 10v8M14.3 10v8M19 10v8M3 21h18\"/></svg>",
+        TileType.Jail => "<svg viewBox=\"0 0 24 24\"><rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2\"/><path d=\"M8.5 3v18M12 3v18M15.5 3v18M4 9h16\"/></svg>",
+        TileType.GoToJail => "<svg viewBox=\"0 0 24 24\"><path d=\"M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z\"/><path d=\"M12 7.5l1.3 2.7 2.9.4-2.1 2 .5 2.9-2.6-1.4-2.6 1.4.5-2.9-2.1-2 2.9-.4z\"/></svg>",
+        TileType.Plaza => "<svg viewBox=\"0 0 24 24\"><path d=\"M12 3a5.5 5.5 0 0 0-1.5 10.8V21h3v-7.2A5.5 5.5 0 0 0 12 3z\"/><path d=\"M6 21h12\"/></svg>",
+        _ => "",
+    });
+
+    protected override void OnParametersSet()
+    {
+        // A snapshot or resync replaces the display object: state is the truth, so cancel in-flight effects.
+        if (!ReferenceEquals(seen, State))
+        {
+            if (seen != null && fx != null && !disposed) _ = Safe(fx.InvokeVoidAsync("snap").AsTask());
+            owners = OwnersOf(State);
+            seen = State;
+        }
+    }
+
+    private static int[] OwnersOf(GameState s) => s.Properties.Select(p => p?.Owner ?? -1).ToArray();
+
+    private string Opts() => "{\"reduceMotion\":" + (Settings.ReduceMotion ? "true" : "false") +
+        ",\"quality\":\"" + (Settings.Quality is "low" or "high" ? Settings.Quality : "auto") + "\",\"currency\":" +
+        System.Text.Json.JsonSerializer.Serialize(Board.Currency) + "}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/board2d-fx.js");
+            if (disposed) { await DisposeFx(); return; }
+            appliedOpts = Opts();
+            fx = await module.InvokeAsync<IJSObjectReference>("create", root, appliedOpts);
+            if (disposed) { await DisposeFx(); return; }
+        }
+        catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException) { fx = null; return; }
+        if (Game != null) Game.EventPlayed += OnEvent;
+        Settings.Changed += OnSettings;
+    }
+
+    private async void OnSettings()
+    {
+        var o = Opts();
+        if (fx == null || disposed || o == appliedOpts) return;
+        appliedOpts = o;
+        await Safe(fx.InvokeVoidAsync("setOptions", o).AsTask());
+    }
+
+    private async void OnEvent(GameEvent e, GameState after)
+    {
+        if (fx == null || disposed) return;
+        int side = Board.Tiles.Count / 4;
+        bool burst = Game != null && Game.PendingEvents > BurstThreshold;
+        if (e is DiceRolled) rollKey++;
+        var calls = new List<Task>();
+        var target = fx;
+        void Call(string fn, params object?[] args) => calls.Add(target.InvokeVoidAsync(fn, args).AsTask());
+        static double[] P((double X, double Y) v) => new[] { Math.Round(v.X, 3), Math.Round(v.Y, 3) };
+        var bank = new[] { 50.0, 50.0 };
+
+        if (!burst)
+        {
+            switch (e)
+            {
+                case PlayerMoved m when m.Player < after.Players.Count && after.Players[m.Player].Position == m.To:
+                    var path = BoardLayout2D.HopPath(m.From, m.To, Board.Tiles.Count, m.Kind);
+                    if (path.Length == 0) break;
+                    var pts = new List<double[]> { P(BoardLayout2D.Centre(m.From, side)) };
+                    for (int i = 0; i < path.Length - 1; i++) pts.Add(P(BoardLayout2D.Centre(path[i], side)));
+                    pts.Add(P(BoardLayout2D.PawnAt(after, m.Player, side)));
+                    Call("hop", m.Player, pts, m.To, BoardLayout2D.Hue(m.Player), m.Kind == MoveKind.Jump);
+                    break;
+                case RentPaid r:
+                    Call("coins", P(BoardLayout2D.PawnAt(after, r.Payer, side)), P(BoardLayout2D.PawnAt(after, r.Payee, side)), BoardLayout2D.CoinCount(r.Amount), r.Amount);
+                    break;
+                case MoneyTransferred t when t.Amount > 0:
+                    Call("coins", t.From >= 0 ? P(BoardLayout2D.PawnAt(after, t.From, side)) : bank,
+                         t.To >= 0 ? P(BoardLayout2D.PawnAt(after, t.To, side)) : bank, BoardLayout2D.CoinCount(t.Amount), t.Amount);
+                    break;
+                case SalaryPaid s:
+                    Call("coins", bank, P(BoardLayout2D.PawnAt(after, s.Player, side)), BoardLayout2D.CoinCount(s.Amount), s.Amount);
+                    break;
+                case BuildingConstructed b:
+                    Call("dust", P(BoardLayout2D.Centre(b.Tile, side)), b.Tile);
+                    break;
+                case GameEnded:
+                    Call("confetti");
+                    break;
+            }
+        }
+
+        var now = OwnersOf(after);
+        if (!burst && now.Length == owners.Length)
+            for (int i = 0; i < now.Length; i++)
+                if (now[i] != owners[i] && now[i] >= 0) Call("sweep", i, BoardLayout2D.Hue(now[i]));
+        owners = now;
+        await Safe(Task.WhenAll(calls));
+    }
+
+    private static async Task Safe(Task t)
+    {
+        try { await t; }
+        catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException or TaskCanceledException) { }
+    }
+
+    private async Task DisposeFx()
+    {
+        var f = fx; var m = module;
+        fx = null; module = null;
+        try
+        {
+            if (f != null) { await f.InvokeVoidAsync("dispose"); await f.DisposeAsync(); }
+            if (m != null) await m.DisposeAsync();
+        }
+        catch (Exception e) when (e is JSDisconnectedException or JSException or ObjectDisposedException) { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        disposed = true;
+        if (Game != null) Game.EventPlayed -= OnEvent;
+        Settings.Changed -= OnSettings;
+        await DisposeFx();
+    }
 }

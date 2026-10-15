@@ -1,1 +1,20 @@
 :root { --bg:#0b0d12; --panel:#151922; --text:#e8ecf4; --muted:#8b93a7; --accent:#34d399; --bad:#f87171; --line:#263042; --glow:#7c3aed; }
+/* Derived board tokens: computed from the theme tokens above, so every theme gets them for free. */
+:root {
+  --tile-hi: color-mix(in srgb, var(--panel) 90%, var(--text) 10%);
+  --tile-lo: color-mix(in srgb, var(--panel) 82%, #000 18%);
+  --tile-edge: color-mix(in srgb, var(--line) 75%, var(--text) 25%);
+  --felt: color-mix(in srgb, var(--bg) 88%, var(--accent) 12%);
+  --felt-deep: color-mix(in srgb, var(--bg) 80%, #000 20%);
+  --price: color-mix(in srgb, var(--text) 70%, var(--accent) 30%);
+  --house: #f4f7fb;
+  --house-edge: rgba(0, 0, 0, .55);
+  --tower: color-mix(in srgb, var(--glow) 55%, #ffd36b 45%);
+  --die: color-mix(in srgb, #fbfbfd 92%, var(--accent) 8%);
+  --die-edge: color-mix(in srgb, #fbfbfd 70%, var(--panel) 30%);
+  --pip: color-mix(in srgb, var(--bg) 85%, #000 15%);
+  --pip-one: var(--bad);
+  --coin: #f6c445;
+  --coin-edge: #a2701a;
+  --dust: color-mix(in srgb, var(--text) 80%, transparent);
+}

@@ -1,0 +1,47 @@
+@* Two CSS 3D dice. A new RollKey re-creates the cubes so the roll animation replays and settles on Die1/Die2. *@
+<div class="dicetray">
+  <div class="dice" role="img" aria-label="@(Die1 > 0 ? $"Dice {Die1} and {Die2}" : "Dice not rolled yet")">
+    @for (int k = 0; k < 2; k++)
+    {
+      int v = Clamp(k == 0 ? Die1 : Die2);
+      var (rx, ry) = Rest(v);
+      <div class="die" @key="(RollKey, k)">
+        <div class="cube @(RollKey > 0 ? "roll" : "")" style="--ex:@(rx)deg;--ey:@(ry)deg;--spin:@(k == 0 ? 1 : -1);--delay:@(k * 70)ms">
+          @for (int f = 1; f <= 6; f++)
+          {
+            <span class="face f@(f)">@for (int p = 0; p < f; p++) { <i></i> }</span>
+          }
+        </div>
+        <div class="die-shadow"></div>
+      </div>
+    }
+  </div>
+  <div class="turnline" style="--o:@PlayerId">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="@Board2D.PawnPath(PlayerToken)" /><path class="sheen" d="@Board2D.PawnPath(PlayerToken)" /></svg>
+    <span class="who">@PlayerName</span>
+    <span class="rnd">Round @Round</span>
+  </div>
+</div>
+
+@code {
+    [Parameter] public int Die1 { get; set; }
+    [Parameter] public int Die2 { get; set; }
+    [Parameter] public int RollKey { get; set; }
+    [Parameter] public int Round { get; set; }
+    [Parameter] public string PlayerName { get; set; } = "";
+    [Parameter] public int PlayerId { get; set; }
+    [Parameter] public int PlayerToken { get; set; }
+
+    private static int Clamp(int v) => v is >= 1 and <= 6 ? v : 1;
+
+    /// <summary>Cube rotation that brings face <paramref name="v"/> to the front (faces: 1 front, 6 back, 2 right, 5 left, 3 top, 4 bottom).</summary>
+    private static (int X, int Y) Rest(int v) => v switch
+    {
+        2 => (0, -90),
+        3 => (-90, 0),
+        4 => (90, 0),
+        5 => (0, 90),
+        6 => (0, 180),
+        _ => (0, 0),
+    };
+}

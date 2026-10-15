@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+
+// Minimal DOM stubs: enough for board2d-fx.js to run headless in node.
+let hidden = false, rafQ = [], listeners = {};
+const rect = { left: 0, top: 0, width: 700, height: 700 };
+const el = () => ({
+  className: '', style: {}, children: [], classList: { toggle() { } },
+  getBoundingClientRect: () => rect, appendChild(c) { this.children.push(c); }, setAttribute() { }, remove() { },
+  querySelector: () => null, querySelectorAll: () => [],
+  getContext: () => new Proxy({}, { get: () => () => { } }),
+});
+globalThis.document = {
+  get hidden() { return hidden; },
+  createElement: () => el(),
+  addEventListener: (k, f) => { listeners[k] = f; }, removeEventListener: k => { delete listeners[k]; },
+};
+globalThis.window = { devicePixelRatio: 1 };
+globalThis.matchMedia = () => ({ matches: false });
+globalThis.getComputedStyle = () => ({ getPropertyValue: () => '' });
+globalThis.requestAnimationFrame = f => { rafQ.push(f); return rafQ.length; };
+globalThis.cancelAnimationFrame = () => { rafQ = []; };
+const { create, capFor, hopMs, arc, CAP_LOW } = await import('../../src/Game.Web/wwwroot/js/board2d-fx.js');
+
+assert.equal(capFor('low', false), 40);
+assert.ok(capFor('high', true) > capFor('auto', true));
+assert.ok(hopMs(1) <= 150 && hopMs(12) >= 60 && hopMs(0) === 0);
+assert.deepEqual(arc([0, 0], [10, 0], 5, 0), [0, 0]);
+assert.deepEqual(arc([0, 0], [10, 0], 5, 1), [10, 0]);
+assert.ok(arc([0, 0], [10, 0], 5, .5)[1] < 0, 'arc bulges up');
+
+const root = el(); root.querySelector = s => (s === '.board2d' ? el() : null);
+const fx = create(root, '{"quality":"low","currency":"₹"}');
+fx.popup = () => { };
+for (let i = 0; i < 10; i++) fx.coins([10, 10], [90, 90], 24, 100);
+assert.equal(fx.activeCount().particles, CAP_LOW, 'low quality caps particles at 40');
+assert.ok(fx.activeCount().looping);
+
+// the loop stops once particles expire
+let now = 0;
+while (rafQ.length && now < 10000) { const f = rafQ.shift(); now += 50; f(now); }
+assert.equal(fx.activeCount().particles, 0); assert.equal(fx.activeCount().looping, false);
+
+// hidden tab: nothing spawns
+hidden = true; fx.confetti(); assert.equal(fx.activeCount().particles, 0); hidden = false;
+
+// reduced motion: nothing spawns
+fx.setOptions('{"reduceMotion":true}'); fx.dust([50, 50]); assert.equal(fx.activeCount().particles, 0);
+fx.setOptions('{"reduceMotion":false}'); fx.dust([50, 50]); assert.ok(fx.activeCount().particles > 0);
+
+// dispose clears and detaches
+fx.dispose();
+assert.equal(fx.activeCount().particles, 0); assert.equal(fx.activeCount().looping, false);
+assert.equal(listeners.visibilitychange, undefined);
+fx.confetti(); assert.equal(fx.activeCount().particles, 0, 'no work after dispose');
+console.log('board2d-fx tests ok');
