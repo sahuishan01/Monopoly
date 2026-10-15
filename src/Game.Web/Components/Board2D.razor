@@ -92,7 +92,7 @@
     @foreach (var p in State.Players.Where(p => !p.Bankrupt))
     {
       var (x, y) = spots[p.Id];
-      <span @key="p.Id" class="pawn @(p.Id == State.CurrentPlayer ? "active" : "")" data-pawn="@p.Id"
+      <span @key="p.Id" class="pawn @(p.Id == State.CurrentPlayer ? "active" : "")" data-pawn="@p.Id" data-at="@p.Position"
             style="left:@Pct(x);top:@Pct(y);--o:@p.Id">
         <span class="pawn-body">
           <svg viewBox="0 0 24 24"><path class="fill" d="@PawnPath(p.Token)" /><path class="sheen" d="@PawnPath(p.Token)" /></svg>
@@ -260,7 +260,13 @@
                                                          && BoardLayout2D.HopPath(pm.From, pm.To, Board.Tiles.Count, MoveKind.Backward).Length != 1);
                 _ = FinishHop(target!, pm.Player, seq, pts, pm.To, leap);
             }
-            else shownTile.Remove(pm.Player);
+            else
+            {
+                // Not animating (burst, reduced motion, disagreement): drop any hop still in flight so it cannot
+                // place the pawn later; the pawn follows State.
+                shownTile.Remove(pm.Player);
+                if (target != null) Call("cancelHop", pm.Player);
+            }
         }
 
         if (animate)

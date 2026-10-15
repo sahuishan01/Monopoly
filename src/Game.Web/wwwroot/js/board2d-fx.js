@@ -43,6 +43,9 @@ class Fx {
     this.last = 0;
     this.dead = false;
     this.mq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+    this.hopTok = new Map();   // player -> token of the hop currently allowed to place that pawn
+    this.onMq = () => { if (this.mq?.matches) this.snap(); };
+    this.mq?.addEventListener?.('change', this.onMq);
     this.small = typeof matchMedia === 'function' && matchMedia('(max-width: 700px)').matches;
 
     const c = this.canvas = document.createElement('canvas');
@@ -100,10 +103,9 @@ class Fx {
   hop(player, points, tile, hue, jump) {
     return new Promise(resolve => {
       const el = this.layer?.querySelector(`[data-pawn="${player}"]`);
+      const tok = this.cancelHop(player);
       if (!el || !this.canAnimate() || !Array.isArray(points) || points.length < 2) { resolve(false); return; }
-      for (const a of el.getAnimations()) a.cancel();
       const body = el.querySelector('.pawn-body');
-      for (const a of body?.getAnimations() || []) a.cancel();
       const hops = points.length - 1;
       const per = jump ? 520 : hopMs(hops);
       const dur = per * hops;
@@ -125,14 +127,17 @@ class Fx {
         if (done) return;
         done = true;
         clearTimeout(guard);
-        if (!this.dead) {
+        // Only a hop that ran to completion and is still the pawn's current hop may place it. A cancelled or
+        // superseded hop never writes left/top, so the position Blazor rendered from State wins.
+        const current = ok && !this.dead && this.hopTok.get(player) === tok;
+        if (current) {
           el.style.transition = 'none';
           el.style.left = last[0] + '%';
           el.style.top = last[1] + '%';
-          try { a.cancel(); } catch { }
-          void el.offsetWidth;
-          el.style.transition = '';
         }
+        try { a.cancel(); } catch { }
+        if (current) { void el.offsetWidth; el.style.transition = ''; }
+        ok = current;
         if (ok && !this.dead && body) {
           this.track(body.animate([
             { transform: 'scale(1.18, .78)' }, { transform: 'scale(.94, 1.08)' }, { transform: 'scale(1, 1)' },
@@ -144,6 +149,18 @@ class Fx {
       const guard = setTimeout(() => { try { b?.cancel(); } catch { } finish(false); }, dur + 1500);
       a.finished.then(() => finish(true), () => finish(false));
     });
+  }
+
+  // Cancels any in-flight hop of this pawn and returns a fresh token; the old hop can no longer place the pawn.
+  cancelHop(player) {
+    const tok = (this.hopTok.get(player) || 0) + 1;
+    this.hopTok.set(player, tok);
+    const el = this.layer?.querySelector(`[data-pawn="${player}"]`);
+    if (el) {
+      for (const a of el.getAnimations?.() || []) { try { a.cancel(); } catch { } }
+      for (const a of el.querySelector('.pawn-body')?.getAnimations?.() || []) { try { a.cancel(); } catch { } }
+    }
+    return tok;
   }
 
   pulse(tile, hue) {
@@ -307,6 +324,7 @@ class Fx {
 
   // State and events disagree (snapshot/resync) or motion was disabled: drop every transient effect.
   snap() {
+    for (const [p, t] of this.hopTok) this.hopTok.set(p, t + 1);
     for (const a of [...this.anims]) { try { a.cancel(); } catch { } }
     this.anims.clear();
     this.root.querySelectorAll('.b2d-pop').forEach(e => e.remove());
@@ -321,6 +339,7 @@ class Fx {
     this.dead = true;
     this.ro?.disconnect();
     document.removeEventListener('visibilitychange', this.onVis);
+    this.mq?.removeEventListener?.('change', this.onMq);
     this.canvas.remove();
   }
 }

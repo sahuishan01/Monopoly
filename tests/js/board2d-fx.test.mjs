@@ -52,4 +52,73 @@ fx.dispose();
 assert.equal(fx.activeCount().particles, 0); assert.equal(fx.activeCount().looping, false);
 assert.equal(listeners.visibilitychange, undefined);
 fx.confetti(); assert.equal(fx.activeCount().particles, 0, 'no work after dispose');
+
+// ---- hops: only a completed, current hop may write the pawn's inline position ----
+function fakeAnim(list) {
+  let res, rej;
+  const a = { finished: new Promise((r, j) => { res = r; rej = j; }), state: 'running' };
+  a.finished.catch(() => { });
+  a.cancel = () => { // like WAAPI: cancelling a finished (fill: forwards) animation removes it without rejecting
+    if (a.state === 'cancelled') return; const was = a.state; a.state = 'cancelled'; list.splice(list.indexOf(a), 1); if (was === 'running') rej(new Error('AbortError')); };
+  a.complete = () => { if (a.state !== 'running') return; a.state = 'finished'; res(a); };
+  list.push(a);
+  return a;
+}
+function pawnStub() {
+  const anims = [], bodyAnims = [], writes = [];
+  const style = new Proxy({}, { set(t, k, v) { if (k === 'left' || k === 'top') writes.push([k, v]); t[k] = v; return true; } });
+  const body = { animate: () => fakeAnim(bodyAnims), getAnimations: () => [...bodyAnims] };
+  const pawn = { style, offsetWidth: 1, animate: () => fakeAnim(anims), getAnimations: () => [...anims], querySelector: () => body };
+  return { pawn, anims, writes };
+}
+function hopRig() {
+  const s = pawnStub();
+  const layer = { querySelector: q => (q === '[data-pawn="0"]' ? s.pawn : null) };
+  const r = el(); r.querySelector = q => (q === '.board2d' ? el() : q === '.pawns' ? layer : null);
+  return { fx: create(r, '{}'), ...s };
+}
+const tick = () => new Promise(r => setTimeout(r, 0));
+const P1 = [[10, 90], [20, 90]], P2 = [[20, 90], [30, 90]];
+{ // normal completion writes the final spot
+  const { fx, anims, writes } = hopRig();
+  const done = fx.hop(0, P1, 1, 0, false);
+  anims[0].complete();
+  assert.equal(await done, true);
+  assert.deepEqual(writes, [['left', '20%'], ['top', '90%']]);
+  assert.equal(anims.length, 0, 'forwards animation released');
+  fx.dispose();
+}
+{ // snap() mid-hop: the cancelled hop must not write left/top
+  const { fx, anims, writes } = hopRig();
+  const done = fx.hop(0, P1, 1, 0, false);
+  const a = anims[0];
+  fx.snap();
+  a.complete(); // a late "finish" after cancel must be ignored too
+  assert.equal(await done, false);
+  await tick();
+  assert.deepEqual(writes, [], 'snap: no inline position written');
+  fx.dispose();
+}
+{ // superseded hop: only the newer hop places the pawn
+  const { fx, anims, writes } = hopRig();
+  const first = fx.hop(0, P1, 1, 0, false);
+  const second = fx.hop(0, P2, 2, 0, false);
+  assert.equal(await first, false);
+  await tick();
+  assert.deepEqual(writes, [], 'superseded hop wrote nothing');
+  anims[anims.length - 1].complete();
+  assert.equal(await second, true);
+  assert.deepEqual(writes, [['left', '30%'], ['top', '90%']]);
+  fx.dispose();
+}
+{ // cancelHop (burst path): in-flight hop cancelled, no write
+  const { fx, anims, writes } = hopRig();
+  const done = fx.hop(0, P1, 1, 0, false);
+  fx.cancelHop(0);
+  assert.equal(await done, false);
+  await tick();
+  assert.deepEqual(writes, []);
+  assert.equal(anims.length, 0);
+  fx.dispose();
+}
 console.log('board2d-fx tests ok');
