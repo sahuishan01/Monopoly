@@ -178,13 +178,14 @@
     }
 
     // The display state lags the host while events animate, so a repeated key press would resend a command the
-    // host already handled. Send each shortcut once per displayed state version (retry allowed after 2 s).
-    private (string Action, int Version, DateTime At) lastShortcut;
+    // host already handled. Send each shortcut at most once per displayed state version.
+    private (string? Action, int Version) lastShortcut;
     private void SendOnce(string action, GameCommand command)
     {
-        int version = game!.Display!.Version;
-        if (lastShortcut.Action == action && lastShortcut.Version == version && DateTime.UtcNow - lastShortcut.At < TimeSpan.FromSeconds(2)) return;
-        lastShortcut = (action, version, DateTime.UtcNow);
+        if (game!.PendingEvents > 0) return;   // still animating: the HUD holds its buttons too
+        int version = game.Display!.Version;
+        if (lastShortcut.Action == action && lastShortcut.Version == version) return;
+        lastShortcut = (action, version);
         game.Client.SendCommand(command);
     }
 

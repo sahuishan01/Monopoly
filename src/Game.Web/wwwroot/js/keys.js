@@ -25,7 +25,8 @@ export function classify(ev, active, modalOpen) {
   if (action === 'escape') return action;          // closing a dialog is always safe, even from a slider
   if (ev.repeat) return null;
   if (typing(active)) return null;
-  if (modalOpen) return null;                      // dialogs own the keyboard while open
+  // dialogs own the keyboard while open; B still buys from the purchase card and M still mutes
+  if (modalOpen && action !== 'buy' && action !== 'mute') return null;
   if (action === 'roll' && activates(active)) return null; // let Space press the focused button
   return action;
 }

@@ -25,7 +25,11 @@ for (const mod of ['ctrlKey', 'metaKey', 'altKey', 'shiftKey'])
   assert.equal(classify(k('b', { [mod]: true }), body, false), null, mod);
 assert.equal(classify(k('b', { repeat: true }), body, false), null, 'auto-repeat');
 
-assert.equal(classify(k('b'), body, true), null, 'modal open blocks game keys');
+assert.equal(classify(k('e'), body, true), null, 'modal open blocks game keys');
+assert.equal(classify(k(' '), body, true), null, 'modal open blocks roll');
+assert.equal(classify(k('l'), body, true), null, 'modal open blocks log');
+assert.equal(classify(k('b'), body, true), 'buy', 'B buys from the purchase card');
+assert.equal(classify(k('m'), body, true), 'mute', 'M mutes with a dialog open');
 assert.equal(classify(k('Escape'), body, true), 'escape', 'modal open allows escape');
 assert.equal(classify(k(' '), el('BUTTON'), false), null, 'space presses the focused button');
 assert.equal(classify(k('b'), el('BUTTON'), false), 'buy', 'letters still work on a focused button');

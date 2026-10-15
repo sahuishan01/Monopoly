@@ -10,6 +10,8 @@
     var curP = s.CurrentPlayer >= 0 && s.CurrentPlayer < s.Players.Count ? s.Players[s.CurrentPlayer] : null;
     string cur = curP?.Name ?? "";
     string currency = Board.Currency;
+    // While paced events are still animating the display lags the host; hold the turn actions until it catches up.
+    bool settling = Game.PendingEvents > 0;
 }
 <aside class="hud glass" aria-label="Match">
   <header class="hud-head">
@@ -51,28 +53,28 @@
 
   @if (myTurn && !s.IsOver)
   {
-    <div class="actions primary-actions">
+    <div class="actions primary-actions @(settling ? "settling" : "")">
       @switch (s.Phase)
       {
         case TurnPhase.PreRoll:
-          <button class="primary big" @onclick="() => Send(new RollDiceCommand(me))">
+          <button disabled="@settling" class="primary big" @onclick="() => Send(new RollDiceCommand(me))">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4" /><circle cx="8.5" cy="8.5" r="1.3" /><circle cx="15.5" cy="15.5" r="1.3" /><circle cx="12" cy="12" r="1.3" /></svg>
             <span>Roll dice</span><kbd aria-hidden="true">Space</kbd>
           </button>
           @if (s.Players[me].InJail)
           {
-            <button class="ghost" @onclick="() => Send(new PayJailFineCommand(me))">Pay fine</button>
-            @if (s.Players[me].JailCards > 0) { <button class="ghost" @onclick="() => Send(new UseJailCardCommand(me))">Use card</button> }
+            <button disabled="@settling" class="ghost" @onclick="() => Send(new PayJailFineCommand(me))">Pay fine</button>
+            @if (s.Players[me].JailCards > 0) { <button disabled="@settling" class="ghost" @onclick="() => Send(new UseJailCardCommand(me))">Use card</button> }
           }
           break;
         case TurnPhase.BuyDecision:
           int offer = TurnActions.OfferedTile(s);
           <p class="offer">@(offer >= 0 && offer < Board.Tiles.Count ? Board.Tiles[offer].Name : "This property") is for sale</p>
-          <button class="primary big" @onclick="() => Send(new BuyPropertyCommand(me))"><span>Buy</span><kbd aria-hidden="true">B</kbd></button>
-          <button class="ghost" @onclick="() => Send(new DeclinePropertyCommand(me))">Pass</button>
+          <button disabled="@settling" class="primary big" @onclick="() => Send(new BuyPropertyCommand(me))"><span>Buy</span><kbd aria-hidden="true">B</kbd></button>
+          <button disabled="@settling" class="ghost" @onclick="() => Send(new DeclinePropertyCommand(me))">Pass</button>
           break;
         case TurnPhase.PostRoll:
-          <button class="primary big" @onclick="() => Send(new EndTurnCommand(me))"><span>End turn</span><kbd aria-hidden="true">E</kbd></button>
+          <button disabled="@settling" class="primary big" @onclick="() => Send(new EndTurnCommand(me))"><span>End turn</span><kbd aria-hidden="true">E</kbd></button>
           break;
       }
     </div>
