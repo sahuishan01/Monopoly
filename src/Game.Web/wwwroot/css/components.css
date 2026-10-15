@@ -1,0 +1,26 @@
+/* shared components */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 1rem; margin: 1rem 0; }
+.row { display: flex; gap: .5rem; margin-top: .5rem; }
+input { background: #0e1219; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: .5rem; }
+button { background: var(--accent); color: #04130d; border: 0; border-radius: 8px; padding: .55rem .9rem; font-weight: 600; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+.error { color: var(--bad); }
+ul { list-style: none; padding: 0; }
+li { display: flex; justify-content: space-between; align-items: center; padding: .4rem 0; border-top: 1px solid var(--line); }
+.hud { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.players li.cur { color: var(--accent); }
+.players li.out { text-decoration: line-through; color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+select { background: #0e1219; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: .5rem; }
+.hero { text-align: center; padding: 1.5rem 0 .5rem; }
+.hero h1 { font-size: 2.4rem; margin: 0; letter-spacing: -.02em; }
+.hero p { color: var(--muted); margin: .4rem 0 0; }
+.card h2 { margin: 0 0 .25rem; font-size: 1.05rem; }
+.card .hint { color: var(--muted); font-size: .85rem; margin: 0 0 .5rem; }
+.card.primary { border-color: var(--accent); }
+.field { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; color: var(--muted); flex: 1; }
+.field input, .field select { width: 100%; font-size: 1rem; color: var(--text); }
+.row > button { flex: 1; }
+.row.wrap { flex-wrap: wrap; align-items: end; }
+.tilecard { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; font-size: 12px; transform: translate(-50%, -140%); white-space: nowrap; }

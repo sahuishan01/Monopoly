@@ -1,0 +1,33 @@
+{
+  "id": "classic-gold",
+  "name": "Classic Gold",
+  "css": {
+    "--bg": "#14100a",
+    "--panel": "#1f1810",
+    "--text": "#f3ead8",
+    "--muted": "#a39478",
+    "--accent": "#e6b04a",
+    "--bad": "#e5684f",
+    "--line": "#3a2e1c",
+    "--glow": "#f5d58a"
+  },
+  "scene": {
+    "sky": [
+      "#2a1f10",
+      "#0d0a05"
+    ],
+    "felt": "#14452a",
+    "fog": "#14100a",
+    "ambient": 0.5,
+    "sun": "#ffe2a8",
+    "bloom": 0.35
+  },
+  "token": {
+    "metal": 0.7,
+    "rough": 0.4
+  },
+  "sound": {
+    "wave": "triangle",
+    "root": 196
+  }
+}

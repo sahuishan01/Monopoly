@@ -1,0 +1,33 @@
+{
+  "id": "neon-noir",
+  "name": "Neon Noir",
+  "css": {
+    "--bg": "#07080f",
+    "--panel": "#111420",
+    "--text": "#e8ecf4",
+    "--muted": "#8b93a7",
+    "--accent": "#22f5c4",
+    "--bad": "#f87171",
+    "--line": "#263042",
+    "--glow": "#7c3aed"
+  },
+  "scene": {
+    "sky": [
+      "#0b1030",
+      "#02030a"
+    ],
+    "felt": "#0d3b2e",
+    "fog": "#07080f",
+    "ambient": 0.35,
+    "sun": "#9fb4ff",
+    "bloom": 0.9
+  },
+  "token": {
+    "metal": 0.8,
+    "rough": 0.3
+  },
+  "sound": {
+    "wave": "sine",
+    "root": 220
+  }
+}

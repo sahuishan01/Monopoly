@@ -1,0 +1,33 @@
+{
+  "id": "frost",
+  "name": "Frost",
+  "css": {
+    "--bg": "#0a141c",
+    "--panel": "#112230",
+    "--text": "#e6f3fb",
+    "--muted": "#7f9bb0",
+    "--accent": "#7dd3fc",
+    "--bad": "#fb7185",
+    "--line": "#223a4d",
+    "--glow": "#bae6fd"
+  },
+  "scene": {
+    "sky": [
+      "#12324a",
+      "#050c12"
+    ],
+    "felt": "#164559",
+    "fog": "#0a141c",
+    "ambient": 0.45,
+    "sun": "#d6efff",
+    "bloom": 0.5
+  },
+  "token": {
+    "metal": 0.85,
+    "rough": 0.2
+  },
+  "sound": {
+    "wave": "sine",
+    "root": 262
+  }
+}

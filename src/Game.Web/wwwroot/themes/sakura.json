@@ -1,0 +1,33 @@
+{
+  "id": "sakura",
+  "name": "Sakura",
+  "css": {
+    "--bg": "#1a0f16",
+    "--panel": "#26161f",
+    "--text": "#fbe9f1",
+    "--muted": "#b08a9c",
+    "--accent": "#f9a8d4",
+    "--bad": "#fb7185",
+    "--line": "#472a39",
+    "--glow": "#fbcfe8"
+  },
+  "scene": {
+    "sky": [
+      "#3a1830",
+      "#10060c"
+    ],
+    "felt": "#3d1f33",
+    "fog": "#1a0f16",
+    "ambient": 0.55,
+    "sun": "#ffd9ea",
+    "bloom": 0.6
+  },
+  "token": {
+    "metal": 0.75,
+    "rough": 0.3
+  },
+  "sound": {
+    "wave": "square",
+    "root": 294
+  }
+}

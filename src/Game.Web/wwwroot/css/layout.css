@@ -1,0 +1,17 @@
+/* page and shell layout */
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; }
+.boot, .notice { padding: 2rem; }
+.home { max-width: 640px; margin: 0 auto; padding: 1.5rem 16px; }
+.lobby { max-width: 640px; margin: 0 auto; padding: 1.5rem 16px; }
+.lobby small { color: var(--muted); font-weight: 400; }
+.play { align-items: start; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 12px; padding: 12px; }
+@media (max-width: 800px) { .play { grid-template-columns: 1fr; } }
+.stage { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+.stage > .ghost { align-self: flex-start; }
+.stage { position: relative; }
+.side { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+.side .card { margin: 0; }
+.side .row { flex-wrap: wrap; }
+.side select, .side input { min-width: 0; max-width: 100%; }
+.side .card { overflow: hidden; }

@@ -1,0 +1,11 @@
+/* board and tokens */
+.board2d { width: min(100%, calc(100vh - 90px)); display: grid; grid-template-columns: repeat(var(--dim), 1fr); grid-template-rows: repeat(var(--dim), 1fr); aspect-ratio: 1; gap: 2px; max-width: 100%; }
+.tile { position: relative; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--text); font-size: clamp(7px, .72vw, 9.5px); padding: 2px; border-radius: 4px; overflow: hidden; text-align: left; }
+.tile.mortgaged { opacity: .45; }
+.tile .name { display: block; line-height: 1.1; }
+.tile .owner, .tile .tok { font-size: 9px; border-radius: 6px; padding: 0 3px; margin-right: 2px; }
+.tokens { position: absolute; bottom: 2px; left: 2px; }
+.tok { font-style: normal; background: var(--accent); color: #04130d; }
+.center { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0e1219; border-radius: 8px; }
+.o0{background:#f87171}.o1{background:#60a5fa}.o2{background:#fbbf24}.o3{background:#a78bfa}.o4{background:#f472b6}.o5{background:#2dd4bf}.o6{background:#fb923c}.o7{background:#a3e635}
+.board3d { width: min(100%, calc(100vh - 90px)); aspect-ratio: 1; touch-action: none; cursor: grab; border-radius: 12px; background: #0b0d12; }
