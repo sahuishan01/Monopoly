@@ -27,7 +27,7 @@
             if (disposed) return;
             var themeJson = await FetchTheme();
             if (disposed) return;
-            var opts = "{\"theme\":" + (themeJson ?? "null") + ",\"quality\":\"" + (Settings.Quality == "low" ? "low" : "high") + "\",\"reduceMotion\":" + (Settings.ReduceMotion ? "true" : "false") + "}";
+            var opts = "{\"theme\":" + (themeJson ?? "null") + ",\"quality\":\"" + (Settings.Quality is "low" or "high" ? Settings.Quality : "auto") + "\",\"reduceMotion\":" + (Settings.ReduceMotion ? "true" : "false") + "}";
             appliedTheme = Settings.Theme; appliedQuality = Settings.Quality; appliedReduce = Settings.ReduceMotion;
             if (disposed) return;
             ready = Game.Board != null && await module.InvokeAsync<bool>("init", canvas, DisplayPayload.Board(Game.Board), self = DotNetObjectReference.Create(this), opts);
@@ -68,7 +68,7 @@
             if (Settings.Quality != appliedQuality)
             {
                 appliedQuality = Settings.Quality;
-                await module.InvokeVoidAsync("setQuality", appliedQuality == "low" ? "low" : "high");
+                await module.InvokeVoidAsync("setQuality", appliedQuality is "low" or "high" ? appliedQuality : "auto");
             }
             if (Settings.ReduceMotion != appliedReduce)
             {
