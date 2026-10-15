@@ -38,12 +38,8 @@ public sealed class EventPacer
     {
         if (backlog > 40) return 0.02;
         double scale = backlog > 12 ? 0.35 : 1.0;
-        double basis = e switch
-        {
-            DiceRolled => 0.9,
-            PlayerMoved => 0.7,
-            _ => 0.3,
-        };
+        var cue = Cues.For(e);
+        double basis = cue.Kind == CueKind.None ? 0.3 : cue.Seconds;
         return basis * scale;
     }
 }
