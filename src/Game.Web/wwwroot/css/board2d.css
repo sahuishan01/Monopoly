@@ -72,11 +72,12 @@
 .tile .name {
   flex: 1 1 auto; min-height: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   padding: 4% 6% 0; font-size: clamp(5.5px, calc(14.5cqmin * var(--nf, 1)), 13px); line-height: 1.12; letter-spacing: .01em; font-weight: 600;
-  overflow-wrap: break-word; hyphens: auto; -webkit-hyphens: auto; text-shadow: 0 1px 1px rgba(0, 0, 0, .6);
+  /* wrap only between words: NameFit (Board2D) scales the font so the longest word fits the card width */
+  overflow-wrap: normal; word-break: normal; hyphens: manual; -webkit-hyphens: manual; text-shadow: 0 1px 1px rgba(0, 0, 0, .6);
 }
 .tile.has-d .name { align-content: center; padding-top: 8%; }
 .tile:not(.k-street) .name { flex: 0 1 auto; }
-.tile.corner .name { flex: 0 0 auto; font-size: clamp(5px, calc(11.5cqmin * var(--nf, 1)), 14px); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 0 8%; }
+.tile.corner .name { flex: 0 0 auto; font-size: clamp(3.5px, calc(11.5cqmin * var(--nf, 1)), 14px); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 0 8%; }
 .tile .price {
   flex: 0 0 auto; padding: 0 0 7%; font-size: clamp(6px, 13.5cqmin, 12.5px); font-weight: 700; color: var(--price);
   font-variant-numeric: tabular-nums; letter-spacing: .02em;

@@ -142,7 +142,8 @@
     internal static string NameFit(string name, bool corner)
     {
         int longest = name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w.Length).DefaultIfEmpty(1).Max();
-        double fit = Math.Min(1, 8.0 / Math.Max(1, longest));
+        // Corner names are upper-case with wide tracking, so fewer letters fit per line there.
+        double fit = Math.Min(1, (corner ? 6.5 : 8.0) / Math.Max(1, longest));
         return fit.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
     }
 
