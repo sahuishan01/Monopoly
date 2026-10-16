@@ -25,6 +25,7 @@
     private IJSObjectReference? module;
     private bool ready;
     private bool disposed;
+    private const int BurstThreshold = 12;
     private GameState? applied;   // Display object last pushed to JS; a replaced snapshot object triggers a re-apply via Changed
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -105,7 +106,8 @@
         try
         {
             if (!ready || module == null || disposed) return;
-            await module.InvokeVoidAsync("playEvent", DisplayPayload.Event(e));
+            // During a burst (resync, catch-up) events snap instead of animating, as in Board2D and AudioBridge.
+            await module.InvokeVoidAsync("playEvent", DisplayPayload.Event(e), Game.PendingEvents > BurstThreshold);
             await Push(after);
         }
         catch (Exception ex) when (ex is JSDisconnectedException or JSException or ObjectDisposedException) { }
