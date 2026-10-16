@@ -34,7 +34,7 @@
         try
         {
             module = await Js.InvokeAsync<IJSObjectReference>("import", "./js/ui.js");
-            if (disposed) return;
+            if (disposed) { await Release(); return; }   // disposed while the import was pending: DisposeAsync saw no module
             trap = await module.InvokeAsync<IJSObjectReference>("trap", panel);
             if (disposed) { await Release(); return; }
             swipe = await module.InvokeAsync<IJSObjectReference>("swipe", panel, self = DotNetObjectReference.Create(this), nameof(Swiped));
