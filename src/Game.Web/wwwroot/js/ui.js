@@ -147,3 +147,11 @@ export function webgl() {
 export function reducedMotion() {
   try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
 }
+
+/** Calls dotnetRef.OsReduceMotionChanged(bool) whenever the OS reduce-motion preference changes. */
+export function watchReducedMotion(dotnetRef) {
+  try {
+    const mq = matchMedia('(prefers-reduced-motion: reduce)');
+    mq.addEventListener('change', e => dotnetRef.invokeMethodAsync('OsReduceMotionChanged', e.matches).catch(() => {}));
+  } catch { /* no matchMedia */ }
+}

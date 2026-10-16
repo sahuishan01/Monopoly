@@ -19,6 +19,10 @@ public sealed class SettingsService(IJSRuntime js, HttpClient http)
     public double Music { get; set; } = 0.5;
     public bool Muted { get; set; }
     public bool ReduceMotion { get; set; }
+    /// <summary>The OS prefers-reduced-motion preference (read at load, then followed live). Not persisted.</summary>
+    public bool OsReduceMotion { get; private set; }
+    /// <summary>Animate less: the in-app setting or the OS preference.</summary>
+    public bool MotionReduced => ReduceMotion || OsReduceMotion;
     public bool View3d { get; set; } = true;
     /// <summary>True once the user (or a stored blob) chose a view; until then the play screen picks one from device capability.</summary>
     public bool HasView3d { get; set; }
@@ -45,6 +49,21 @@ public sealed class SettingsService(IJSRuntime js, HttpClient http)
         }
         catch { }
         await SetThemeAsync(Theme);
+        try
+        {
+            var ui = await js.InvokeAsync<IJSObjectReference>("import", "./js/ui.js");
+            OsReduceMotion = await ui.InvokeAsync<bool>("reducedMotion");
+            await ui.InvokeVoidAsync("watchReducedMotion", DotNetObjectReference.Create(this));
+        }
+        catch { }
+        Changed?.Invoke();
+    }
+
+    [JSInvokable]
+    public void OsReduceMotionChanged(bool reduce)
+    {
+        if (OsReduceMotion == reduce) return;
+        OsReduceMotion = reduce;
         Changed?.Invoke();
     }
 

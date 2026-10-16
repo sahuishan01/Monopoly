@@ -29,7 +29,7 @@
         int from = shown;
         target = Value;
         run?.Cancel();
-        if (Settings.ReduceMotion) { shown = target; _ = ClearFlash(deltaKey); return; }
+        if (Settings.MotionReduced) { shown = target; _ = ClearFlash(deltaKey); return; }
         run = new CancellationTokenSource();
         _ = Animate(from, target, run.Token, deltaKey);
     }

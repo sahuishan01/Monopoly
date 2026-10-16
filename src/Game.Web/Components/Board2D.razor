@@ -195,7 +195,7 @@
 
     private static int[] OwnersOf(GameState s) => s.Properties.Select(p => p?.Owner ?? -1).ToArray();
 
-    private string Opts() => "{\"reduceMotion\":" + (Settings.ReduceMotion ? "true" : "false") +
+    private string Opts() => "{\"reduceMotion\":" + (Settings.MotionReduced ? "true" : "false") +
         ",\"quality\":\"" + (Settings.Quality is "low" or "high" ? Settings.Quality : "auto") + "\",\"currency\":" +
         System.Text.Json.JsonSerializer.Serialize(Board.Currency) + "}";
 
@@ -239,7 +239,7 @@
         if (e is DiceRolled) rollKey++;
         var now = OwnersOf(after);
         var target = fx;
-        bool animate = target != null && !burst && !Settings.ReduceMotion;
+        bool animate = target != null && !burst && !Settings.MotionReduced;
         var calls = new List<Task>();
         void Call(string fn, params object?[] args) => calls.Add(target!.InvokeVoidAsync(fn, args).AsTask());
         static double[] P((double X, double Y) v) => new[] { Math.Round(v.X, 3), Math.Round(v.Y, 3) };

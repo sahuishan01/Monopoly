@@ -4,9 +4,11 @@ import { createCamera } from './3d/camera.js';
 import { createLook } from './3d/materials.js';
 import { createFx, probeQuality } from './fx.js';
 import { autoTier, NARROW_PX } from './hero-policy.js';
+import { REDUCE_QUERY, osReducedMotion, effectiveReduce, playsFx, cameraCue } from './3d/policy.js';
 
 let renderer = null, world = null, cam = null, raf = 0, canvas = null, ro = null, last = 0;
 let dotnet = null, hover = -1, ray = null, pointer = null, quality = 'high';
+let appReduce = false, mq = null;
 let fx = null, reduce = false, auto = false, probeGen = 0, curTheme = null, fogAt = NaN;
 
 function autoDefault() {
@@ -118,7 +120,10 @@ export function init(canvasEl, boardJson, dotnetRef, optsJson) {
     const opts = parse(optsJson) || {};
     auto = opts.quality !== 'low' && opts.quality !== 'high';
     quality = auto ? autoDefault() : opts.quality;
-    reduce = !!opts.reduceMotion;
+    // Reduced motion = the in-app setting OR the OS preference (followed live).
+    appReduce = !!opts.reduceMotion;
+    reduce = effectiveReduce(appReduce, osReducedMotion());
+    try { mq = matchMedia(REDUCE_QUERY); mq.addEventListener('change', applyReduce); } catch { mq = null; }
     curTheme = opts.theme || null;
     canvas = canvasEl;
     canvas.addEventListener('webglcontextlost', onContextLost);
@@ -128,13 +133,13 @@ export function init(canvasEl, boardJson, dotnetRef, optsJson) {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     const look = createLook(opts.theme);
-    world = createWorld(board, look, renderer, { reduceMotion: opts.reduceMotion });
+    world = createWorld(board, look, renderer, { reduceMotion: reduce });
     world.setTheme(opts.theme);
     ray = new THREE.Raycaster(); pointer = new THREE.Vector2();
     cam = createCamera(canvas, world.side, {
       pick, setHover,
       click: i => { if (dotnet) dotnet.invokeMethodAsync('TileClicked', i).catch(() => {}); },
-    }, { reduceMotion: opts.reduceMotion });
+    }, { reduceMotion: reduce });
     fx = createFx(THREE, world.scene, renderer, cam.camera, curTheme, quality);
     applyQuality();
     window.addEventListener('resize', onResize);
@@ -167,7 +172,14 @@ export function setQuality(q) {
   if (auto && autoDefault() === 'high') runProbe(); else { probeGen++; clearTimeout(probeTimer); }
 }
 
-export function setReduceMotion(v) { reduce = !!v; if (cam) cam.setReduceMotion(v); if (world) world.setReduceMotion(v); }
+function applyReduce() {
+  reduce = effectiveReduce(appReduce, osReducedMotion());
+  if (cam) cam.setReduceMotion(reduce);
+  if (world) world.setReduceMotion(reduce);
+}
+
+/** In-app reduce-motion setting; the OS preference still applies on top of it. */
+export function setReduceMotion(v) { appReduce = !!v; applyReduce(); }
 
 export function applyState(stateJson) { if (world) world.applyState(JSON.parse(stateJson)); }
 export function playEvent(eventJson, burst) {
@@ -175,11 +187,11 @@ export function playEvent(eventJson, burst) {
   const e = typeof eventJson === 'string' ? parse(eventJson) : eventJson;
   if (!e) return;
   world.playEvent(e, !!burst);
-  if (!burst && !reduce && fx) particles(e);
+  if (playsFx(burst, reduce) && fx) particles(e);
   if (!cam) return;
-  const t = e['$t'];
-  if (t === 'TurnStarted') { const p = world.tokenPos(e.Player); if (p) cam.follow(p); }
-  else if (t === 'AuctionStarted' || (typeof t === 'string' && t.startsWith('Trade'))) cam.overview();
+  const cue = cameraCue(e['$t'], reduce);
+  if (cue === 'follow') { const p = world.tokenPos(e.Player); if (p) cam.follow(p); }
+  else if (cue === 'overview') cam.overview();
 }
 
 /** Test hook: NDC bounds of the board's bounding box as the camera currently sees it (|v| <= 1 is on screen). */
@@ -236,7 +248,8 @@ export function dispose(loseContext) {
   window.removeEventListener('resize', onResize);
   window.removeEventListener('orientationchange', onResize);
   if (ro) { ro.disconnect(); ro = null; }
-  if (canvas) canvas.removeEventListener('webglcontextlost', onContextLost);   // before forceContextLoss below
+  if (canvas) canvas.removeEventListener('webglcontextlost', onContextLost);
+  if (mq) { try { mq.removeEventListener('change', applyReduce); } catch { /* ignore */ } mq = null; }   // before forceContextLoss below
   if (cam) cam.dispose();
   if (fx) { fx.dispose(); fx = null; }
   if (world) world.dispose();
