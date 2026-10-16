@@ -35,6 +35,7 @@
     private string? appliedTheme;
     private string appliedQuality = "";
     private bool appliedReduce;
+    private int themeSeq;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -131,8 +132,9 @@
             if (handle != null && Settings.Theme != appliedTheme)
             {
                 appliedTheme = Settings.Theme;
-                var json = await Http.GetStringAsync($"themes/{Settings.Theme}.json");
-                if (!disposed && handle != null && appliedTheme == Settings.Theme) await handle.InvokeVoidAsync("setTheme", json);
+                var seq = ++themeSeq;   // only the latest request applies, whatever order the fetches finish in
+                var json = await Http.GetStringAsync($"themes/{appliedTheme}.json");
+                if (!disposed && handle != null && seq == themeSeq) await handle.InvokeVoidAsync("setTheme", json);
             }
         }
         catch (Exception e) when (e is JSException or JSDisconnectedException or ObjectDisposedException or TaskCanceledException or HttpRequestException) { }
