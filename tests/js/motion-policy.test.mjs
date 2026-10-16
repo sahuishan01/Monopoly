@@ -19,11 +19,12 @@ assert.equal(playsFx(false, false), true);
 assert.equal(playsFx(true, false), false, 'burst');
 assert.equal(playsFx(false, true), false, 'reduced motion');
 
-// camera cues
+// camera cues, none under reduced motion
 assert.equal(cameraCue('TurnStarted', false), 'follow');
 assert.equal(cameraCue('AuctionStarted', false), 'overview');
 assert.equal(cameraCue('TradeProposed', false), 'overview');
 assert.equal(cameraCue('PlayerMoved', false), null);
+for (const t of ['TurnStarted', 'AuctionStarted', 'TradeProposed']) assert.equal(cameraCue(t, true), null, t + ' under reduced motion');
 assert.equal(cameraCue(undefined, false), null);
 
 console.log('motion-policy tests ok');
