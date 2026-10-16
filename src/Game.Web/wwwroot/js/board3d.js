@@ -223,6 +223,8 @@ export const __test = {
   framing, tileNdc, pickAt,
   /** True once the camera has eased onto its goal (nothing will move until the next auto/user change). */
   settled: () => !!cam && cam.settled,
+  /** Effective reduced motion (in-app setting OR OS preference). */
+  reduced: () => reduce,
 };
 
 function tilePos(i) { const t = world.tiles[i]; return t ? t.mesh.position : null; }

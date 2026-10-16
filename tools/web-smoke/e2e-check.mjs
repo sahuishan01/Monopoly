@@ -7,6 +7,7 @@
 //     (no colour transition left stuck on the old theme), sets Quality and Mute, and all three survive a reload;
 //   * the M shortcut toggles mute;
 //   * phone viewport (touch, DPR 3): theme switch, 2D tile tap -> card, no horizontal overflow, 3D renders;
+//   * the OS prefers-reduced-motion setting reaches the 3D board (and follows live changes) with the in-app setting off;
 //   * no console errors or warnings outside a short allow-list of known-benign software-GL messages.
 //
 //   node tools/web-smoke/e2e-check.mjs [outDir] --base=http://127.0.0.1:<port>/ [--gl=egl|swiftshader]
@@ -265,6 +266,33 @@ async function startBots(page, name) {
     check(run, '3D canvas renders a non-uniform image (phone)', nonUniform(s), s);
     await overflow('play 3D');
     await shot('03-play-3d');
+  } catch (e) {
+    check(run, 'run completed', false, e.message.split('\n')[0]);
+    await shot('zz-failure');
+  }
+  check(run, 'no console errors', errors.length === 0, [...new Set(errors)].slice(0, 5).join(' | '));
+  await ctx.close();
+}
+
+// ---------- OS reduced motion (in-app setting off) ----------
+{
+  const run = 'os-reduced-motion';
+  const { ctx, page, errors, shot } = await open(run, { viewport: { width: 1280, height: 800 }, reducedMotion: 'reduce' }, SETTINGS({ ReduceMotion: false }));
+  try {
+    await startBots(page, 'Still');
+    await page.waitForSelector('canvas.board3d', { timeout: 60000 });
+    await page.waitForTimeout(2000);
+    const reduced = () => page.evaluate(async () => (await import('/js/board3d.js')).__test.reduced());
+    check(run, '3D honours the OS preference with the in-app setting off', await reduced() === true);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.waitForTimeout(500);
+    check(run, '3D follows the OS preference live (off)', await reduced() === false);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForTimeout(500);
+    check(run, '3D follows the OS preference live (on again)', await reduced() === true);
+    const s = await canvasSample(page);
+    check(run, '3D still renders under reduced motion', nonUniform(s), s);
+    await shot('01-play-3d');
   } catch (e) {
     check(run, 'run completed', false, e.message.split('\n')[0]);
     await shot('zz-failure');
